@@ -1,0 +1,6 @@
+contract/out/
+contract/cache/
+contract/lib/
+contract/broadcast/
+.env
+.DS_Store

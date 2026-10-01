@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Keyed</title>
+<meta name="description" content="Your key to the inner circle. Collect creator keys on BNB Chain.">
+<meta name="theme-color" content="#f6f4fb">
+<link rel="icon" type="image/webp" href="logo.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+  <nav class="nav">
+    <div class="bar">
+      <a class="brand" href="#/" aria-label="Keyed home"><img src="logo.webp" alt="">Keyed</a>
+      <div class="links">
+        <a href="#/explore" data-nav="explore">Explore</a>
+        <a href="#/launch" data-nav="launch">Launch</a>
+        <a href="#/me" data-nav="me">Portfolio</a>
+      </div>
+      <button class="btn btn-dark" id="wallet" type="button">Connect wallet</button>
+    </div>
+    <div class="banner" id="banner" hidden></div>
+  </nav>
+  <main id="view" tabindex="-1"></main>
+  <footer class="foot">
+    <span>© 2026 Keyed · Experimental, unaudited contracts. Collecting keys carries risk.</span>
+    <span><a href="#/explore">Explore</a> · <a href="#/launch">Launch</a> · <a id="xlink" href="https://x.com/" target="_blank" rel="noopener">X</a></span>
+  </footer>
+</div>
+<nav class="dock" aria-label="App">
+  <a href="#/explore" data-nav="explore">Explore</a>
+  <a href="#/launch" data-nav="launch">Launch</a>
+  <a href="#/me" data-nav="me">Portfolio</a>
+</nav>
+<div class="toast" id="toast" role="status" hidden></div>
+<div class="modal" id="walletModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="wmTitle">
+    <h3 id="wmTitle">Connect a wallet</h3>
+    <div id="walletList" class="wallet-list"></div>
+    <button class="btn btn-ghost" id="wmClose" type="button">Cancel</button>
+  </div>
+</div>
+<script src="config.js"></script>
+<script src="vendor/ethers.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
