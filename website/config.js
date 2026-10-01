@@ -9,7 +9,7 @@ window.KEYED_CONFIG = {
   // 2. Which network the contract lives on:
   //    "testnet" = BSC Testnet (free test BNB)
   //    "mainnet" = BNB Smart Chain (real BNB)
-  NETWORK: "testnet",
+  NETWORK: "mainnet",
 
   // 3. Optional: your own RPC URL. Leave empty to use the public BNB Chain RPC.
   RPC_URL: "",
