@@ -320,6 +320,37 @@
   });
   window.dispatchEvent(new Event("eip6963:requestProvider"));
 
+  // Privy login (email, X or wallet). privy.js publishes window.KeyedPrivy.
+  const privyOn = () => !DEMO && !!(CFG.PRIVY_APP_ID || "").trim() && !window.KeyedPrivyFailed;
+  const xUser = () => window.KeyedPrivy?.user?.twitter?.username || "";
+  let privySyncing = false;
+  let pendingLogin = false;
+  async function syncPrivy() {
+    const kp = window.KeyedPrivy;
+    if (window.KeyedPrivyFailed) { paintWallet(); return; }
+    if (!kp?.ready || privySyncing) return;
+    paintWallet();
+    if (pendingLogin && !kp.authenticated) { pendingLogin = false; try { kp.login(); } catch (e) { toast(esc(errMsg(e)), true); } return; }
+    pendingLogin = false;
+    if (!kp.authenticated) {
+      if (wallet.viaPrivy) { Object.assign(wallet, { addr: null, signer: null, eip: null, chainOk: true, viaPrivy: false }); paintWallet(); route(); }
+      return;
+    }
+    const w = kp.wallets?.[0];
+    if (!w) return;
+    if (wallet.viaPrivy && same(wallet.addr, w.address)) { if (location.hash.startsWith("#/launch")) route(); return; }
+    privySyncing = true;
+    try {
+      const prov = await w.getEthereumProvider();
+      wallet.viaPrivy = true;
+      await setEip(prov, w.address);
+      if (!wallet.chainOk) await ensureChain().catch(() => {});
+      route();
+    } catch (e) { toast(esc(errMsg(e)), true); }
+    finally { privySyncing = false; }
+  }
+  window.addEventListener("keyed:privy", syncPrivy);
+
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
     set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* storage unavailable */ } },
@@ -331,7 +362,7 @@
       b.textContent = wallet.chainOk ? short(wallet.addr) : "Wrong network";
       b.className = wallet.chainOk ? "btn btn-ghost" : "btn btn-sell";
     } else {
-      b.textContent = "Connect wallet";
+      b.textContent = privyOn() ? "Log in" : "Connect wallet";
       b.className = "btn btn-dark";
     }
   }
@@ -358,7 +389,8 @@
   }
 
   function disconnect() {
-    Object.assign(wallet, { addr: null, signer: null, eip: null, chainOk: true });
+    if (wallet.viaPrivy) { try { window.KeyedPrivy?.logout(); } catch { /* ignore */ } }
+    Object.assign(wallet, { addr: null, signer: null, eip: null, chainOk: true, viaPrivy: false });
     store.set("keyed.wallet", null);
     paintWallet();
     route();
@@ -384,6 +416,12 @@
   }
 
   function openModal() {
+    if (privyOn()) {
+      const kp = window.KeyedPrivy;
+      if (kp?.ready) { try { kp.login(); } catch (e) { toast(esc(errMsg(e)), true); } }
+      else { pendingLogin = true; toast("Opening login…"); }
+      return;
+    }
     if (DEMO) {
       wallet.addr = "0xDe110000000000000000000000000000000000Fe";
       wallet.chainOk = true;
@@ -418,7 +456,7 @@
   }
 
   async function autoConnect() {
-    if (DEMO) return;
+    if (DEMO || privyOn()) return;
     const last = store.get("keyed.wallet");
     if (!last) return;
     await new Promise((r) => setTimeout(r, 250));
@@ -435,6 +473,7 @@
     if (!wallet.chainOk) return ensureChain().then(route).catch((e) => toast(errMsg(e), true));
     location.hash = "#/me";
   });
+  $("#dockWallet").addEventListener("click", () => { if (wallet.addr) location.hash = "#/me"; else openModal(); });
   $("#wmClose").addEventListener("click", closeModal);
   $("#walletModal").addEventListener("click", (e) => { if (e.target.id === "walletModal") closeModal(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
@@ -515,46 +554,7 @@
       <div class="keys" id="topClubs">${'<div class="skeleton"></div>'.repeat(4)}</div>
     </section>
 
-    <section class="sec">
-      <div class="head"><h2>Three steps in.</h2><p>Connect a wallet, pick a creator, hold their key. Creators can launch their own club in a minute.</p></div>
-      <div class="steps">
-        <article class="step"><span class="n">1</span><h3>Connect</h3><p>Use MetaMask, Rabby, Trust Wallet or any BNB Chain wallet.</p></article>
-        <article class="step"><span class="n">2</span><h3>Collect</h3><p>Buy a creator's key in ${SYM}. The price rises with every key sold, and you can sell back any time.</p></article>
-        <article class="step"><span class="n">3</span><h3>Launch your club</h3><p>Pick how many keys exist and how much of your fee goes to holders. Your first key is free.</p></article>
-      </div>
-    </section>
-
-    <section class="sec">
-      <div class="fees">
-        <div>
-          <p class="eyebrow">Fee per trade</p>
-          <div class="big grad">4%</div>
-          <p class="muted" style="max-width:38ch">Every buy and sell pays one flat fee, split automatically by the contract.</p>
-        </div>
-        <div>
-          <div class="splitbar" role="img" aria-label="1% to Keyed, 3% to the creator and holders">
-            <div style="flex:1;background:var(--cyan)">1%</div>
-            <div style="flex:3;background:linear-gradient(90deg,var(--violet),var(--pink) 60%,var(--orange))">3%</div>
-          </div>
-          <ul class="legend">
-            <li><i style="background:var(--cyan)"></i><div><b>Keyed · 1%</b> <span>keeps the platform running.</span></div></li>
-            <li><i style="background:var(--violet)"></i><div><b>Creator · 3%</b> <span>goes to the club owner.</span></div></li>
-            <li><i style="background:var(--orange)"></i><div><b>Holders</b> <span>get the part of the 3% the creator chooses to share. It can only go up.</span></div></li>
-          </ul>
-        </div>
-      </div>
-    </section>
-
-    <section class="sec">
-      <div class="head"><h2>Good to know.</h2></div>
-      <div class="faq">
-        <details open><summary>What is a key?</summary><p>A key is a tradable spot in a creator's club. Each club has a fixed number of keys, and holders earn whatever fee share the creator has set.</p></details>
-        <details><summary>How is the price set?</summary><p>By a curve in the contract: key number n costs (n − 1)² ÷ 16,000 ${SYM}. Early keys are cheap and the price climbs as more are held. Selling moves the price back down.</p></details>
-        <details><summary>Can a creator add more keys later?</summary><p>No. The maximum is fixed at launch, so there is no surprise dilution.</p></details>
-        <details><summary>Where do my rewards go?</summary><p>They build up in the contract. Claim them any time from your portfolio, even after you sell your keys.</p></details>
-        <details><summary>Is this safe?</summary><p>Keyed is an experiment and the contract has not been audited. Only use money you are comfortable losing.</p></details>
-      </div>
-    </section>
+    ${infoSections()}
 
     <div class="closer">
       <img src="logo.webp" alt="">
@@ -579,7 +579,7 @@
   let exploreState = { q: "", sort: "top" };
   async function explore(id) {
     view.innerHTML = `
-      <div class="page-title"><div><p class="eyebrow">Explore</p><h1>Find your people.</h1></div>
+      <div class="page-title"><div><p class="eyebrow">Discover</p><h1>Find your people.</h1></div>
       <a class="btn btn-jelly" href="#/launch">Launch your club</a></div>
       <div class="split2">
         <div style="min-width:0">
@@ -790,24 +790,25 @@
     }
     await paintQuote();
 
-    if (isOwner) {
-      const cred = await api.credits(wallet.addr);
-      if (id !== renderId) return;
-      $("#owner").innerHTML = `<h3>Creator tools</h3>
-        <dl class="rows"><div><dt>Your fee earnings</dt><dd>${bnb(cred)}</dd></div></dl>
-        <button class="btn btn-jelly btn-block" id="wd" type="button" ${cred > 0n ? "" : "disabled"}>Withdraw earnings</button>
-        <div class="form" style="margin-top:20px">
-          <div class="field"><label for="shareUp">Holder share: <span id="shareOut">${pct(c.share)}</span></label>
-            <input id="shareUp" type="range" min="${c.share}" max="10000" step="500" value="${c.share}" style="accent-color:var(--violet)">
-            <span class="hint">You can raise this any time. It can never go back down.</span></div>
-          <button class="btn btn-ghost" id="shareBtn" type="button" disabled>Raise holder share</button>
-          <a class="btn btn-ghost" href="#/launch">Edit profile</a>
-        </div>`;
-      $("#wd").addEventListener("click", async (e) => { if (await runTx(e.currentTarget, () => api.withdraw(), `Withdrew ${bnb(cred)}`)) route(); });
-      const s = $("#shareUp");
-      s.addEventListener("input", () => { $("#shareOut").textContent = pct(s.value); $("#shareBtn").disabled = +s.value <= c.share; });
-      $("#shareBtn").addEventListener("click", async (e) => { if (await runTx(e.currentTarget, () => api.raiseShare(+s.value), `Holder share raised to ${pct(s.value)}`)) route(); });
-    }
+    if (isOwner) await creatorTools($("#owner"), c, id);
+  }
+
+  async function creatorTools(el, c, id) {
+    const cred = await api.credits(wallet.addr);
+    if (id !== renderId || !el) return;
+    el.innerHTML = `<h3>Creator tools</h3>
+      <dl class="rows"><div><dt>Your fee earnings</dt><dd>${bnb(cred)}</dd></div></dl>
+      <button class="btn btn-jelly btn-block" id="wd" type="button" ${cred > 0n ? "" : "disabled"}>Withdraw earnings</button>
+      <div class="form" style="margin-top:20px">
+        <div class="field"><label for="shareUp">Holder share: <span id="shareOut">${pct(c.share)}</span></label>
+          <input id="shareUp" type="range" min="${c.share}" max="10000" step="500" value="${c.share}" style="accent-color:var(--violet)">
+          <span class="hint">You can raise this any time. It can never go back down.</span></div>
+        <button class="btn btn-ghost" id="shareBtn" type="button" disabled>Raise holder share</button>
+      </div>`;
+    $("#wd", el).addEventListener("click", async (e) => { if (await runTx(e.currentTarget, () => api.withdraw(), `Withdrew ${bnb(cred)}`)) route(); });
+    const s = $("#shareUp", el);
+    s.addEventListener("input", () => { $("#shareOut", el).textContent = pct(s.value); $("#shareBtn", el).disabled = +s.value <= c.share; });
+    $("#shareBtn", el).addEventListener("click", async (e) => { if (await runTx(e.currentTarget, () => api.raiseShare(+s.value), `Holder share raised to ${pct(s.value)}`)) route(); });
   }
 
   function copy(text) {
@@ -827,13 +828,16 @@
     const editing = !!existing;
     const v = existing || { name: "", handle: "", avatar: "", bio: "", maxSupply: 100, share: 2000, creator: wallet.addr || ZERO, supply: 1, holders: 1 };
     view.innerHTML = `
-      <div class="page-title"><div><p class="eyebrow">${editing ? "Your club" : "Launch"}</p><h1>${editing ? "Edit your profile." : "Open your club."}</h1></div>
+      <div class="page-title"><div><p class="eyebrow">Creator studio</p><h1>${editing ? "Your club." : "Open your club."}</h1></div>
       ${editing ? `<a class="btn btn-ghost" href="#/club/${existing.creator}">View your club</a>` : ""}</div>
       <div class="split2">
         <form class="panel form" id="lf" novalidate>
           <div class="two">
             <div class="field"><label for="f-name">Club name</label><input class="input" id="f-name" maxlength="40" required value="${esc(v.name)}" placeholder="Mira Sol"></div>
-            <div class="field"><label for="f-handle">X handle</label><input class="input" id="f-handle" maxlength="32" value="${esc(cleanHandle(v.handle))}" placeholder="@yourname"></div>
+            <div class="field"><label for="f-handle">X handle</label>${privyOn()
+              ? `<input class="input" id="f-handle" readonly value="${esc(xUser() || (editing ? cleanHandle(v.handle) : ""))}" placeholder="Link your X account">
+                 ${xUser() ? `<span class="hint">Verified with X ✓</span>` : `<button class="btn btn-ghost btn-sm" id="linkX" type="button" style="justify-self:start">Link X account</button>`}`
+              : `<input class="input" id="f-handle" maxlength="32" value="${esc(cleanHandle(v.handle))}" placeholder="@yourname">`}</div>
           </div>
           <div class="field"><label for="f-avatar">Profile picture URL</label><input class="input" id="f-avatar" maxlength="300" value="${esc(v.avatar)}" placeholder="https://…/me.jpg">
             <span class="hint">Optional. Paste a link to an image that starts with https://.</span></div>
@@ -852,6 +856,7 @@
         <div class="stack">
           <p class="eyebrow">Preview</p>
           <div id="preview"></div>
+          ${editing ? `<div class="panel" id="owner"></div>` : ""}
         </div>
       </div>`;
 
@@ -869,12 +874,14 @@
     };
     $$("#lf input, #lf textarea").forEach((el) => el.addEventListener("input", paint));
     paint();
+    $("#linkX")?.addEventListener("click", () => { try { window.KeyedPrivy.linkTwitter(); } catch (e) { toast(esc(errMsg(e)), true); } });
+    if (editing) creatorTools($("#owner"), existing, id);
 
     $("#lf").addEventListener("submit", async (e) => {
       e.preventDefault();
       if (!wallet.addr) return openModal();
       const err = $("#ferr");
-      const f = { name: val("#f-name").trim(), handle: cleanHandle(val("#f-handle")), avatar: val("#f-avatar").trim(), bio: val("#f-bio").trim() };
+      const f = { name: val("#f-name").trim(), handle: privyOn() ? (xUser() || (editing ? cleanHandle(v.handle) : "")) : cleanHandle(val("#f-handle")), avatar: val("#f-avatar").trim(), bio: val("#f-bio").trim() };
       const problems = [];
       if (!f.name) problems.push("Add a club name.");
       if (new TextEncoder().encode(f.name).length > 40) problems.push("Club name is too long.");
@@ -899,12 +906,12 @@
   // ------------------------------------------------------------------ portfolio
   async function mePage(id) {
     if (!wallet.addr) {
-      view.innerHTML = `<div class="page-title"><div><p class="eyebrow">Portfolio</p><h1>Your keys.</h1></div></div>
+      view.innerHTML = `<div class="page-title"><div><p class="eyebrow">My keys</p><h1>Your keys.</h1></div></div>
         <div class="panel empty"><b>Connect your wallet</b>Your keys, rewards and creator earnings show up here.<div style="margin-top:16px"><button class="btn btn-jelly" id="pc" type="button">Connect wallet</button></div></div>`;
       $("#pc").addEventListener("click", openModal);
       return;
     }
-    view.innerHTML = `<div class="page-title"><div><p class="eyebrow">Portfolio · ${short(wallet.addr)}</p><h1>Your keys.</h1></div>
+    view.innerHTML = `<div class="page-title"><div><p class="eyebrow">My keys · ${short(wallet.addr)}</p><h1>Your keys.</h1></div>
       <button class="btn btn-ghost" id="disc" type="button">Disconnect</button></div>
       <div class="skeleton"></div>`;
     $("#disc").addEventListener("click", disconnect);
@@ -922,7 +929,7 @@
       const totalWorth = rows.reduce((s, r) => s + r.worth, 0n);
       const totalRew = rows.reduce((s, r) => s + r.reward, 0n);
       const mine = map.get(wallet.addr.toLowerCase());
-      view.innerHTML = `<div class="page-title"><div><p class="eyebrow">Portfolio · ${short(wallet.addr)}</p><h1>Your keys.</h1></div>
+      view.innerHTML = `<div class="page-title"><div><p class="eyebrow">My keys · ${short(wallet.addr)}</p><h1>Your keys.</h1></div>
         <div class="cta"><span class="chip">Wallet: ${bnb(wbal)}</span><button class="btn btn-ghost btn-sm" id="disc" type="button">Disconnect</button></div></div>
         ${!DEMO && NET.chainId === 97 && wbal === 0n ? `<div class="panel" style="margin-bottom:20px">You need test BNB to trade. Get some free from the <a href="${FAUCET}" target="_blank" rel="noopener">BNB Chain faucet</a>.</div>` : ""}
         <div class="sum">
@@ -949,16 +956,81 @@
     }
   }
 
+  function infoSections() {
+    return `
+    <section class="sec">
+      <div class="head"><h2>Three steps in.</h2><p>Connect a wallet, pick a creator, hold their key. Creators can launch their own club in a minute.</p></div>
+      <div class="steps">
+        <article class="step"><span class="n">1</span><h3>Connect</h3><p>Use MetaMask, Rabby, Trust Wallet or any BNB Chain wallet.</p></article>
+        <article class="step"><span class="n">2</span><h3>Collect</h3><p>Buy a creator's key in ${SYM}. The price rises with every key sold, and you can sell back any time.</p></article>
+        <article class="step"><span class="n">3</span><h3>Launch your club</h3><p>Pick how many keys exist and how much of your fee goes to holders. Your first key is free.</p></article>
+      </div>
+    </section>
+
+    <section class="sec">
+      <div class="fees">
+        <div>
+          <p class="eyebrow">Fee per trade</p>
+          <div class="big grad">4%</div>
+          <p class="muted" style="max-width:38ch">Every buy and sell pays one flat fee, split automatically by the contract.</p>
+        </div>
+        <div>
+          <div class="splitbar" role="img" aria-label="1% to Keyed, 3% to the creator and holders">
+            <div style="flex:1;background:var(--cyan)">1%</div>
+            <div style="flex:3;background:linear-gradient(90deg,var(--violet),var(--pink) 60%,var(--orange))">3%</div>
+          </div>
+          <ul class="legend">
+            <li><i style="background:var(--cyan)"></i><div><b>Keyed · 1%</b> <span>keeps the platform running.</span></div></li>
+            <li><i style="background:var(--violet)"></i><div><b>Creator · 3%</b> <span>goes to the club owner.</span></div></li>
+            <li><i style="background:var(--orange)"></i><div><b>Holders</b> <span>get the part of the 3% the creator chooses to share. It can only go up.</span></div></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec">
+      <div class="head"><h2>Good to know.</h2></div>
+      <div class="faq">
+        <details open><summary>What is a key?</summary><p>A key is a tradable spot in a creator's club. Each club has a fixed number of keys, and holders earn whatever fee share the creator has set.</p></details>
+        <details><summary>How is the price set?</summary><p>By a curve in the contract: key number n costs (n − 1)² ÷ 16,000 ${SYM}. Early keys are cheap and the price climbs as more are held. Selling moves the price back down.</p></details>
+        <details><summary>Can a creator add more keys later?</summary><p>No. The maximum is fixed at launch, so there is no surprise dilution.</p></details>
+        <details><summary>Where do my rewards go?</summary><p>They build up in the contract. Claim them any time from your portfolio, even after you sell your keys.</p></details>
+        <details><summary>Is this safe?</summary><p>Keyed is an experiment and the contract has not been audited. Only use money you are comfortable losing.</p></details>
+      </div>
+    </section>
+
+`;
+  }
+
+  function infoPage() {
+    const scan = !DEMO && NET.explorer ? `${NET.explorer}/address/${ADDRESS}` : "";
+    view.innerHTML = `<div class="page-title"><div><p class="eyebrow">How it works</p><h1>A closer look.</h1></div>
+      ${scan ? `<a class="btn btn-ghost" href="${scan}" target="_blank" rel="noopener">Contract on BscScan</a>` : ""}</div>
+      ${infoSections()}`;
+  }
+
+  // ------------------------------------------------------------------ messages
+  function messagesPage() {
+    view.innerHTML = `<div class="page-title"><div><p class="eyebrow">Messages</p><h1>Talk to your club.</h1></div></div>
+      <div class="panel empty"><b>Coming soon</b>Holder chats and creator posts are on the way. For now, collect and trade keys in Discover.
+      <div style="margin-top:16px"><a class="btn btn-jelly" href="#/explore">Go to Discover</a></div></div>`;
+  }
+
   // ================================================================== router
   function route() {
     const id = ++renderId;
     const parts = (location.hash.replace(/^#\/?/, "") || "").split("/");
     const page = parts[0] || "";
     $$("[data-nav]").forEach((a) => a.classList.toggle("on", a.dataset.nav === page || (page === "club" && a.dataset.nav === "explore")));
+    $("#tabbar").hidden = page === "" || page === "info";
+    const dock = page === "" ? "home" : page === "info" ? "info" : page === "me" ? "wallet" : "app";
+    $$("[data-dock]").forEach((t) => t.classList.toggle("on", t.dataset.dock === dock));
+    if (page === "info") return infoPage();
     if (page === "explore") return explore(id);
     if (page === "club" && /^0x[0-9a-fA-F]{40}$/.test(parts[1] || "")) return clubPage(id, parts[1]);
     if (page === "launch") return launchPage(id);
     if (page === "me") return mePage(id);
+    if (page === "messages") return messagesPage();
     return landing(id);
   }
   let lastPage = null;
