@@ -473,6 +473,7 @@
     if (!wallet.chainOk) return ensureChain().then(route).catch((e) => toast(errMsg(e), true));
     location.hash = "#/me";
   });
+  $("#dockWallet").addEventListener("click", () => { if (wallet.addr) location.hash = "#/me"; else openModal(); });
   $("#wmClose").addEventListener("click", closeModal);
   $("#walletModal").addEventListener("click", (e) => { if (e.target.id === "walletModal") closeModal(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
@@ -553,46 +554,7 @@
       <div class="keys" id="topClubs">${'<div class="skeleton"></div>'.repeat(4)}</div>
     </section>
 
-    <section class="sec">
-      <div class="head"><h2>Three steps in.</h2><p>Connect a wallet, pick a creator, hold their key. Creators can launch their own club in a minute.</p></div>
-      <div class="steps">
-        <article class="step"><span class="n">1</span><h3>Connect</h3><p>Use MetaMask, Rabby, Trust Wallet or any BNB Chain wallet.</p></article>
-        <article class="step"><span class="n">2</span><h3>Collect</h3><p>Buy a creator's key in ${SYM}. The price rises with every key sold, and you can sell back any time.</p></article>
-        <article class="step"><span class="n">3</span><h3>Launch your club</h3><p>Pick how many keys exist and how much of your fee goes to holders. Your first key is free.</p></article>
-      </div>
-    </section>
-
-    <section class="sec">
-      <div class="fees">
-        <div>
-          <p class="eyebrow">Fee per trade</p>
-          <div class="big grad">4%</div>
-          <p class="muted" style="max-width:38ch">Every buy and sell pays one flat fee, split automatically by the contract.</p>
-        </div>
-        <div>
-          <div class="splitbar" role="img" aria-label="1% to Keyed, 3% to the creator and holders">
-            <div style="flex:1;background:var(--cyan)">1%</div>
-            <div style="flex:3;background:linear-gradient(90deg,var(--violet),var(--pink) 60%,var(--orange))">3%</div>
-          </div>
-          <ul class="legend">
-            <li><i style="background:var(--cyan)"></i><div><b>Keyed · 1%</b> <span>keeps the platform running.</span></div></li>
-            <li><i style="background:var(--violet)"></i><div><b>Creator · 3%</b> <span>goes to the club owner.</span></div></li>
-            <li><i style="background:var(--orange)"></i><div><b>Holders</b> <span>get the part of the 3% the creator chooses to share. It can only go up.</span></div></li>
-          </ul>
-        </div>
-      </div>
-    </section>
-
-    <section class="sec">
-      <div class="head"><h2>Good to know.</h2></div>
-      <div class="faq">
-        <details open><summary>What is a key?</summary><p>A key is a tradable spot in a creator's club. Each club has a fixed number of keys, and holders earn whatever fee share the creator has set.</p></details>
-        <details><summary>How is the price set?</summary><p>By a curve in the contract: key number n costs (n − 1)² ÷ 16,000 ${SYM}. Early keys are cheap and the price climbs as more are held. Selling moves the price back down.</p></details>
-        <details><summary>Can a creator add more keys later?</summary><p>No. The maximum is fixed at launch, so there is no surprise dilution.</p></details>
-        <details><summary>Where do my rewards go?</summary><p>They build up in the contract. Claim them any time from your portfolio, even after you sell your keys.</p></details>
-        <details><summary>Is this safe?</summary><p>Keyed is an experiment and the contract has not been audited. Only use money you are comfortable losing.</p></details>
-      </div>
-    </section>
+    ${infoSections()}
 
     <div class="closer">
       <img src="logo.webp" alt="">
@@ -994,6 +956,59 @@
     }
   }
 
+  function infoSections() {
+    return `
+    <section class="sec">
+      <div class="head"><h2>Three steps in.</h2><p>Connect a wallet, pick a creator, hold their key. Creators can launch their own club in a minute.</p></div>
+      <div class="steps">
+        <article class="step"><span class="n">1</span><h3>Connect</h3><p>Use MetaMask, Rabby, Trust Wallet or any BNB Chain wallet.</p></article>
+        <article class="step"><span class="n">2</span><h3>Collect</h3><p>Buy a creator's key in ${SYM}. The price rises with every key sold, and you can sell back any time.</p></article>
+        <article class="step"><span class="n">3</span><h3>Launch your club</h3><p>Pick how many keys exist and how much of your fee goes to holders. Your first key is free.</p></article>
+      </div>
+    </section>
+
+    <section class="sec">
+      <div class="fees">
+        <div>
+          <p class="eyebrow">Fee per trade</p>
+          <div class="big grad">4%</div>
+          <p class="muted" style="max-width:38ch">Every buy and sell pays one flat fee, split automatically by the contract.</p>
+        </div>
+        <div>
+          <div class="splitbar" role="img" aria-label="1% to Keyed, 3% to the creator and holders">
+            <div style="flex:1;background:var(--cyan)">1%</div>
+            <div style="flex:3;background:linear-gradient(90deg,var(--violet),var(--pink) 60%,var(--orange))">3%</div>
+          </div>
+          <ul class="legend">
+            <li><i style="background:var(--cyan)"></i><div><b>Keyed · 1%</b> <span>keeps the platform running.</span></div></li>
+            <li><i style="background:var(--violet)"></i><div><b>Creator · 3%</b> <span>goes to the club owner.</span></div></li>
+            <li><i style="background:var(--orange)"></i><div><b>Holders</b> <span>get the part of the 3% the creator chooses to share. It can only go up.</span></div></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec">
+      <div class="head"><h2>Good to know.</h2></div>
+      <div class="faq">
+        <details open><summary>What is a key?</summary><p>A key is a tradable spot in a creator's club. Each club has a fixed number of keys, and holders earn whatever fee share the creator has set.</p></details>
+        <details><summary>How is the price set?</summary><p>By a curve in the contract: key number n costs (n − 1)² ÷ 16,000 ${SYM}. Early keys are cheap and the price climbs as more are held. Selling moves the price back down.</p></details>
+        <details><summary>Can a creator add more keys later?</summary><p>No. The maximum is fixed at launch, so there is no surprise dilution.</p></details>
+        <details><summary>Where do my rewards go?</summary><p>They build up in the contract. Claim them any time from your portfolio, even after you sell your keys.</p></details>
+        <details><summary>Is this safe?</summary><p>Keyed is an experiment and the contract has not been audited. Only use money you are comfortable losing.</p></details>
+      </div>
+    </section>
+
+`;
+  }
+
+  function infoPage() {
+    const scan = !DEMO && NET.explorer ? `${NET.explorer}/address/${ADDRESS}` : "";
+    view.innerHTML = `<div class="page-title"><div><p class="eyebrow">How it works</p><h1>A closer look.</h1></div>
+      ${scan ? `<a class="btn btn-ghost" href="${scan}" target="_blank" rel="noopener">Contract on BscScan</a>` : ""}</div>
+      ${infoSections()}`;
+  }
+
   // ------------------------------------------------------------------ messages
   function messagesPage() {
     view.innerHTML = `<div class="page-title"><div><p class="eyebrow">Messages</p><h1>Talk to your club.</h1></div></div>
@@ -1007,6 +1022,10 @@
     const parts = (location.hash.replace(/^#\/?/, "") || "").split("/");
     const page = parts[0] || "";
     $$("[data-nav]").forEach((a) => a.classList.toggle("on", a.dataset.nav === page || (page === "club" && a.dataset.nav === "explore")));
+    $("#tabbar").hidden = page === "" || page === "info";
+    const dock = page === "" ? "home" : page === "info" ? "info" : page === "me" ? "wallet" : "app";
+    $$("[data-dock]").forEach((t) => t.classList.toggle("on", t.dataset.dock === dock));
+    if (page === "info") return infoPage();
     if (page === "explore") return explore(id);
     if (page === "club" && /^0x[0-9a-fA-F]{40}$/.test(parts[1] || "")) return clubPage(id, parts[1]);
     if (page === "launch") return launchPage(id);
