@@ -77,7 +77,7 @@ p{margin:0}
 .tile.t-wallet{background:linear-gradient(160deg,#3a3552,#232036)}
 .tile.t-info{background:linear-gradient(160deg,#c08bff,var(--violet) 55%,#6a28d9)}
 .tile.on::after{content:"";position:absolute;bottom:-9px;left:50%;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:#fff}
-body{padding-bottom:calc(110px + env(safe-area-inset-bottom,0px))}
+body.has-dock{padding-bottom:calc(110px + env(safe-area-inset-bottom,0px))}
 @media (max-width:420px){.dock{gap:10px;padding:10px 12px 14px}.tile{width:54px;height:54px}}
 
 /* buttons */
@@ -243,6 +243,12 @@ details p{margin:0 0 18px;color:var(--muted);max-width:62ch}
 
 .foot{border-top:1px solid var(--line);padding-block:28px 40px;margin-top:40px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;color:var(--muted);font-size:14px}
 .foot a{text-decoration:none}
+.foot{align-items:center}
+.foot-ca{display:inline-flex;flex-wrap:wrap;align-items:center;gap:8px;font:500 13px var(--mono)}
+.foot-ca a{color:var(--ink);text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
+.foot-ca b{font-family:var(--body);color:var(--ink)}
+.foot-note{flex-basis:100%;font:400 13px/1.5 var(--body);color:var(--muted)}
+.foot .chip{cursor:pointer;text-decoration:none;color:var(--ink)}
 
 /* portfolio */
 .sum{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}

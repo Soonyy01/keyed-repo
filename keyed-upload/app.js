@@ -1023,6 +1023,8 @@
     const page = parts[0] || "";
     $$("[data-nav]").forEach((a) => a.classList.toggle("on", a.dataset.nav === page || (page === "club" && a.dataset.nav === "explore")));
     $("#tabbar").hidden = page === "" || page === "info";
+    $(".dock").hidden = page === "";
+    document.body.classList.toggle("has-dock", page !== "");
     const dock = page === "" ? "home" : page === "info" ? "info" : page === "me" ? "wallet" : "app";
     $$("[data-dock]").forEach((t) => t.classList.toggle("on", t.dataset.dock === dock));
     if (page === "info") return infoPage();
@@ -1051,6 +1053,12 @@
     banner.hidden = false;
   }
   if (CFG.X_URL) $("#xlink").href = CFG.X_URL;
+  if (!DEMO) {
+    $("#caLink").textContent = ADDRESS;
+    $("#caLink").href = NET.explorer ? `${NET.explorer}/address/${ADDRESS}` : "#";
+    $("#caCopy").addEventListener("click", () => copy(ADDRESS));
+    $("#footCa").hidden = false;
+  }
 
   paintWallet();
   route();
