@@ -812,7 +812,7 @@
   }
 
   function copy(text) {
-    const done = () => toast("Address copied");
+    const done = () => toast("Contract address copied");
     try {
       navigator.clipboard.writeText(text).then(done, () => toast(esc(text)));
     } catch { toast(esc(text)); }
@@ -1054,10 +1054,11 @@
   }
   if (CFG.X_URL) $("#xlink").href = CFG.X_URL;
   if (!DEMO) {
-    $("#caLink").textContent = ADDRESS;
-    $("#caLink").href = NET.explorer ? `${NET.explorer}/address/${ADDRESS}` : "#";
+    $("#caShort").textContent = short(ADDRESS);
     $("#caCopy").addEventListener("click", () => copy(ADDRESS));
-    $("#footCa").hidden = false;
+    $("#caCopy").hidden = false;
+    if (NET.explorer) { $("#caLink").href = `${NET.explorer}/address/${ADDRESS}`; $("#caLink").hidden = false; }
+    $("#footNote").hidden = false;
   }
 
   paintWallet();
