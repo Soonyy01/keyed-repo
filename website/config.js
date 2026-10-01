@@ -17,6 +17,9 @@ window.KEYED_CONFIG = {
   // 4. Privy login (email, X, wallet). Leave empty to use browser wallets only.
   PRIVY_APP_ID: "cmuptu79x00ip0dl16wfoheaw",
 
-  // 5. Optional: link to your X (Twitter) account, shown in the footer.
+  // 5. Optional: your token contract address (CA). Leave "" to hide the CA button.
+  TOKEN_CA: "",
+
+  // 6. Optional: link to your X (Twitter) account, shown in the footer.
   X_URL: "https://x.com/",
 };

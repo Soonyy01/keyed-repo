@@ -1053,10 +1053,13 @@
     banner.hidden = false;
   }
   if (CFG.X_URL) $("#xlink").href = CFG.X_URL;
+  const TOKEN_CA = (CFG.TOKEN_CA || "").trim();
+  if (TOKEN_CA) {
+    $("#tokenCaShort").textContent = short(TOKEN_CA);
+    $("#tokenCa").addEventListener("click", () => copy(TOKEN_CA));
+    $("#tokenCa").hidden = false;
+  }
   if (!DEMO) {
-    $("#caShort").textContent = short(ADDRESS);
-    $("#caCopy").addEventListener("click", () => copy(ADDRESS));
-    $("#caCopy").hidden = false;
     if (NET.explorer) { $("#caLink").href = `${NET.explorer}/address/${ADDRESS}`; $("#caLink").hidden = false; }
     $("#footNote").hidden = false;
   }
