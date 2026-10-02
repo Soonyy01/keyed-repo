@@ -18,7 +18,7 @@ window.KEYED_CONFIG = {
   PRIVY_APP_ID: "cmuptu79x00ip0dl16wfoheaw",
 
   // 5. Optional: your token contract address (CA). Leave "" to hide the CA button.
-  TOKEN_CA: "",
+  TOKEN_CA: "0x75512e55a40bab148587d89c16c279b8e79b7777",
 
   // 6. Optional: link to your X (Twitter) account, shown in the footer.
   X_URL: "https://x.com/keyedtech",
