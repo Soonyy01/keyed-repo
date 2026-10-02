@@ -21,5 +21,5 @@ window.KEYED_CONFIG = {
   TOKEN_CA: "",
 
   // 6. Optional: link to your X (Twitter) account, shown in the footer.
-  X_URL: "https://x.com/",
+  X_URL: "https://x.com/keyedtech",
 };
