@@ -17,15 +17,40 @@ if (APP_ID && HAS_CONTRACT) {
   boot().then(() => clearTimeout(timer), (e) => { clearTimeout(timer); fail(e); });
 }
 
+// Robinhood Chain (Arbitrum Orbit L2, gas paid in ETH)
+const RPC = (CFG.RPC_URL || "").trim();
+const robinhood = {
+  id: 4663,
+  name: "Robinhood Chain",
+  network: "robinhood",
+  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+  rpcUrls: {
+    default: { http: [RPC || "https://rpc.mainnet.chain.robinhood.com"] },
+    public: { http: ["https://rpc.mainnet.chain.robinhood.com"] },
+  },
+  blockExplorers: { default: { name: "Blockscout", url: "https://robinhoodchain.blockscout.com" } },
+};
+const robinhoodTestnet = {
+  id: 46630,
+  name: "Robinhood Chain Testnet",
+  network: "robinhood-testnet",
+  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+  rpcUrls: {
+    default: { http: [RPC || "https://rpc.testnet.chain.robinhood.com"] },
+    public: { http: ["https://rpc.testnet.chain.robinhood.com"] },
+  },
+  blockExplorers: { default: { name: "Explorer", url: "https://explorer.testnet.chain.robinhood.com" } },
+  testnet: true,
+};
+
 async function boot() {
-  const [React, ReactDOM, Privy, chains] = await Promise.all([
+  const [React, ReactDOM, Privy] = await Promise.all([
     import("https://esm.sh/react@18.3.1"),
     import("https://esm.sh/react-dom@18.3.1/client"),
     import("https://esm.sh/@privy-io/react-auth@2?deps=react@18.3.1,react-dom@18.3.1"),
-    import("https://esm.sh/viem@2/chains"),
   ]);
   const h = React.createElement;
-  const chain = CFG.NETWORK === "testnet" ? chains.bscTestnet : chains.bsc;
+  const chain = CFG.NETWORK === "testnet" ? robinhoodTestnet : robinhood;
   const dark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
 
   function Bridge() {

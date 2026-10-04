@@ -117,10 +117,10 @@ contract KeyedTest is Test {
         assertEq(k.pendingRewards(alice, bob), 0);
     }
 
-    function test_notEnoughBnb() public {
+    function test_notEnoughEth() public {
         uint256 cost = k.getBuyPriceAfterFee(alice, 1);
         vm.prank(bob);
-        vm.expectRevert("Not enough BNB");
+        vm.expectRevert("Not enough ETH");
         k.buyKeys{value: cost - 1}(alice, 1);
     }
 
@@ -293,7 +293,7 @@ contract KeyedTest is Test {
         vm.deal(address(r), 0);
         r.buy{value: 1 ether}();
         _buy(bob, alice, 2);
-        vm.expectRevert("BNB transfer failed");
+        vm.expectRevert("ETH transfer failed");
         r.sell();
     }
 

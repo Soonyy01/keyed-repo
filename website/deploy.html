@@ -60,7 +60,7 @@
     <div class="panel" id="result" hidden>
       <h3>Contract deployed</h3>
       <p class="addr" id="addr"></p>
-      <p class="note"><a id="scan" target="_blank" rel="noopener">View on BscScan</a></p>
+      <p class="note"><a id="scan" target="_blank" rel="noopener">View on Robinhood Chain explorer</a></p>
       <p style="margin-top:16px!important"><b>Last step.</b> Open <span class="mono">website/config.js</span>, replace the <span class="mono">CONTRACT_ADDRESS</span> line with this one, then commit and push:</p>
       <div class="out" id="line" style="margin-top:10px"></div>
       <button class="btn btn-ghost btn-sm" id="copy" type="button" style="margin-top:10px">Copy line</button>
@@ -76,9 +76,9 @@
 (() => {
   const CFG = window.KEYED_CONFIG || {};
   const NETS = {
-    mainnet: { chainId: 56, name: "BNB Smart Chain", rpc: "https://bsc-dataseed.bnbchain.org", explorer: "https://bscscan.com", symbol: "BNB" },
-    testnet: { chainId: 97, name: "BNB Smart Chain Testnet", rpc: "https://bsc-testnet-dataseed.bnbchain.org", explorer: "https://testnet.bscscan.com", symbol: "tBNB" },
-    local: { chainId: 31337, name: "Local test chain", rpc: "http://127.0.0.1:8545", explorer: "", symbol: "BNB" },
+    mainnet: { chainId: 4663, name: "Robinhood Chain", rpc: "https://rpc.mainnet.chain.robinhood.com", explorer: "https://robinhoodchain.blockscout.com", symbol: "ETH" },
+    testnet: { chainId: 46630, name: "Robinhood Chain Testnet", rpc: "https://rpc.testnet.chain.robinhood.com", explorer: "https://explorer.testnet.chain.robinhood.com", symbol: "ETH" },
+    local: { chainId: 31337, name: "Local test chain", rpc: "http://127.0.0.1:8545", explorer: "", symbol: "ETH" },
   };
   const NET = NETS[CFG.NETWORK] || NETS.mainnet;
   const E = window.ethers;
@@ -116,7 +116,7 @@
       await eip.request({ method: "wallet_switchEthereumChain", params: [{ chainId: hex }] });
     } catch (e) {
       if ((e?.code ?? e?.data?.originalError?.code) !== 4902) throw e;
-      await eip.request({ method: "wallet_addEthereumChain", params: [{ chainId: hex, chainName: NET.name, nativeCurrency: { name: "BNB", symbol: NET.symbol, decimals: 18 }, rpcUrls: [NET.rpc], blockExplorerUrls: NET.explorer ? [NET.explorer] : [] }] });
+      await eip.request({ method: "wallet_addEthereumChain", params: [{ chainId: hex, chainName: NET.name, nativeCurrency: { name: "Ether", symbol: NET.symbol, decimals: 18 }, rpcUrls: [NET.rpc], blockExplorerUrls: NET.explorer ? [NET.explorer] : [] }] });
     }
   }
 
@@ -160,9 +160,10 @@
       await ensureChain();
       btn.textContent = "Confirm in wallet…";
       const signer = await new E.BrowserProvider(eip, "any").getSigner(addr);
-      // Deploying needs about 3.0M gas. Some mobile wallets set a lower limit and the
-      // transaction fails, so set the limit ourselves with headroom.
-      let gasLimit = 3_600_000n;
+      // On Robinhood Chain (Arbitrum Orbit) the gas limit also covers the L1 data fee,
+      // so a deploy needs more gas units than on other chains. Unused gas is refunded.
+      // Some mobile wallets set a lower limit and the transaction fails, so set it ourselves.
+      let gasLimit = 12_000_000n;
       try {
         const est = await new E.BrowserProvider(eip, "any").estimateGas({ from: addr, data: window.KEYED_BYTECODE });
         const padded = (est * 13n) / 10n;
@@ -186,7 +187,7 @@
       btn.textContent = "Deployed";
     } catch (e) {
       const failed = e?.receipt?.hash || lastHash;
-      status(errMsg(e) + (failed && NET.explorer ? " Check it on BscScan: " + NET.explorer + "/tx/" + failed : ""), true);
+      status(errMsg(e) + (failed && NET.explorer ? " Check it on the explorer: " + NET.explorer + "/tx/" + failed : ""), true);
       lastHash = null;
       btn.textContent = "Deploy contract";
       btn.disabled = false;

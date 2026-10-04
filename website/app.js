@@ -5,17 +5,16 @@
   // ------------------------------------------------------------------ config
   const CFG = window.KEYED_CONFIG || {};
   const NETS = {
-    mainnet: { chainId: 56, name: "BNB Smart Chain", rpc: "https://bsc-dataseed.bnbchain.org", explorer: "https://bscscan.com", symbol: "BNB" },
-    testnet: { chainId: 97, name: "BNB Smart Chain Testnet", rpc: "https://bsc-testnet-dataseed.bnbchain.org", explorer: "https://testnet.bscscan.com", symbol: "tBNB" },
-    local: { chainId: 31337, name: "Local test chain", rpc: "http://127.0.0.1:8545", explorer: "", symbol: "BNB" },
+    mainnet: { chainId: 4663, name: "Robinhood Chain", rpc: "https://rpc.mainnet.chain.robinhood.com", explorer: "https://robinhoodchain.blockscout.com", symbol: "ETH" },
+    testnet: { chainId: 46630, name: "Robinhood Chain Testnet", rpc: "https://rpc.testnet.chain.robinhood.com", explorer: "https://explorer.testnet.chain.robinhood.com", symbol: "ETH" },
+    local: { chainId: 31337, name: "Local test chain", rpc: "http://127.0.0.1:8545", explorer: "", symbol: "ETH" },
   };
-  const NET = NETS[CFG.NETWORK] || NETS.testnet;
+  const NET = NETS[CFG.NETWORK] || NETS.mainnet;
   const RPC = (CFG.RPC_URL || "").trim() || NET.rpc;
   const ADDRESS = (CFG.CONTRACT_ADDRESS || "").trim();
   const E = window.ethers;
   const DEMO = !ADDRESS || !E;
-  const SYM = DEMO ? "BNB" : NET.symbol;
-  const FAUCET = "https://www.bnbchain.org/en/testnet-faucet";
+  const SYM = NET.symbol;
 
   // ------------------------------------------------------------------ helpers
   const $ = (s, el = document) => el.querySelector(s);
@@ -35,7 +34,7 @@
     if (n < 1000) return n.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
     return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
   }
-  const bnb = (wei) => `${fmt(wei)} ${SYM}`;
+  const eth = (wei) => `${fmt(wei)} ${SYM}`;
   const pct = (bps) => `${(Number(bps) / 100).toFixed(Number(bps) % 100 ? 1 : 0)}%`;
 
   function ago(sec) {
@@ -164,7 +163,6 @@
     const S = { clubs: new Map(), order: [], bal: new Map(), debt: new Map(), stored: new Map(), credits: new Map(), trades: [], wallet: 5n * WEI };
     const k2 = (a, b) => a.toLowerCase() + ":" + b.toLowerCase();
     const get = (m, k) => m.get(k) ?? 0n;
-    const fakeAddr = (i) => "0x" + (i * 2654435761 >>> 0).toString(16).padStart(8, "0").repeat(5);
     const holdersOf = (c) => [...S.bal.entries()].filter(([k, v]) => k.startsWith(c.toLowerCase() + ":") && v > 0n);
 
     function settle(c, u) {
@@ -232,26 +230,6 @@
         createdAt: c.createdAt, buyPrice: bp ? bp + fees(bp, c.share).total : 0n, sellPrice: sp ? sp - fees(sp, c.share).total : 0n,
       };
     };
-
-    // seed sample clubs
-    const seed = [
-      ["Mira Sol", "mirasol", "Street photographer. Holders get first look at every series.", 200, 2500, 34],
-      ["Rafi Builds", "rafibuilds", "Shipping one tiny app a week. Key holders vote on the next one.", 150, 2000, 22],
-      ["Lumen Art", "lumen_art", "Generative art and the code behind it.", 120, 5000, 41],
-      ["Tokki Cooks", "tokkicooks", "Home cooking, Korean and Indonesian. Recipes drop for holders first.", 250, 1500, 12],
-      ["Nadia Runs", "nadiaruns", "Marathon training logs, gear notes and race-day plans.", 100, 3000, 18],
-      ["Bayu Beats", "bayubeats", "Lo-fi producer from Bandung. Stems and early tracks for holders.", 300, 1000, 27],
-    ];
-    const t0 = now() - 6 * 86400;
-    seed.forEach(([name, handle, bio, max, share, buys], i) => {
-      const cr = fakeAddr(i + 11);
-      launch(cr, { name, handle, avatar: "", bio, maxSupply: max, share }, t0 + i * 3600);
-      for (let j = 0; j < buys; j++) {
-        const trader = fakeAddr(100 + ((i * 7 + j) % 23));
-        buy(trader, cr, 1 + (j % 3 === 0 ? 1 : 0), t0 + 6 * 3600 + Math.floor((j * 5 * 86400) / buys) + i * 977);
-      }
-    });
-    S.trades.sort((a, b) => a.time - b.time);
 
     const wait = (ms = 700) => new Promise((r) => setTimeout(r, ms));
     const tx = async (fn) => {
@@ -426,14 +404,14 @@
       wallet.addr = "0xDe110000000000000000000000000000000000Fe";
       wallet.chainOk = true;
       paintWallet();
-      toast("Demo wallet connected with 5 BNB of play money.");
+      toast(`Demo wallet connected with 5 ${SYM} of play money.`);
       route();
       return;
     }
     const list = walletEntries();
     $("#walletList").innerHTML = list.length
       ? list.map((w, i) => `<button type="button" data-i="${i}">${w.info.icon ? `<img src="${esc(w.info.icon)}" alt="">` : ""}${esc(w.info.name)}</button>`).join("")
-      : `<p class="muted">No wallet found in this browser. Install <a href="https://metamask.io/download/" target="_blank" rel="noopener">MetaMask</a> or <a href="https://rabby.io/" target="_blank" rel="noopener">Rabby</a>, or open this site in the browser inside Trust Wallet, MetaMask or Binance Wallet on your phone.</p>`;
+      : `<p class="muted">No wallet found in this browser. Install <a href="https://metamask.io/download/" target="_blank" rel="noopener">MetaMask</a> or <a href="https://rabby.io/" target="_blank" rel="noopener">Rabby</a>, or open this site in the browser inside MetaMask, Rabby or Trust Wallet on your phone.</p>`;
     $$("#walletList button").forEach((b) => b.addEventListener("click", () => connectWith(list[+b.dataset.i])));
     $("#walletModal").hidden = false;
   }
@@ -449,7 +427,7 @@
       if (code !== 4902) throw e;
       await wallet.eip.request({
         method: "wallet_addEthereumChain",
-        params: [{ chainId: hex, chainName: NET.name, nativeCurrency: { name: "BNB", symbol: NET.symbol, decimals: 18 }, rpcUrls: [RPC], blockExplorerUrls: NET.explorer ? [NET.explorer] : [] }],
+        params: [{ chainId: hex, chainName: NET.name, nativeCurrency: { name: "Ether", symbol: NET.symbol, decimals: 18 }, rpcUrls: [RPC], blockExplorerUrls: NET.explorer ? [NET.explorer] : [] }],
       });
     }
     await setEip(wallet.eip, wallet.addr);
@@ -510,7 +488,7 @@
     return `<a class="key" href="#/club/${c.creator}">
       <div class="who">${avatar(c)}<div><b>${esc(c.name)}</b><span>${c.handle ? "@" + esc(cleanHandle(c.handle)) : short(c.creator)}</span></div></div>
       <div class="stats">
-        <div><small>Key price</small><strong>${c.buyPrice ? bnb(c.buyPrice) : "Sold out"}</strong></div>
+        <div><small>Key price</small><strong>${c.buyPrice ? eth(c.buyPrice) : "Sold out"}</strong></div>
         <div><small>Holders</small><strong>${c.holders}</strong></div>
       </div>
       <div><div class="supply"><i style="width:${fill}%"></i></div>
@@ -525,7 +503,7 @@
       ${c ? avatar(c, "sm") : ""}
       <div class="grow"><b>${launch ? "Club launched" : `${short(t.trader)} ${t.isBuy ? "bought" : "sold"} ${t.amount} key${t.amount > 1 ? "s" : ""}`}</b>
       <span>${c ? esc(c.name) + " · " : ""}${ago(t.time)}</span></div>
-      <div class="right">${launch ? `<span class="tag buy">New</span>` : `<span class="tag ${t.isBuy ? "buy" : "sell"}">${t.isBuy ? "Buy" : "Sell"}</span>${bnb(t.value)}`}</div>
+      <div class="right">${launch ? `<span class="tag buy">New</span>` : `<span class="tag ${t.isBuy ? "buy" : "sell"}">${t.isBuy ? "Buy" : "Sell"}</span>${eth(t.value)}`}</div>
     </a>`;
   }
 
@@ -534,14 +512,14 @@
     view.innerHTML = `
     <header class="hero">
       <div>
-        <p class="eyebrow">Creator keys on BNB Chain</p>
+        <p class="eyebrow">Creator keys on Robinhood Chain</p>
         <h1>Your key to the <span class="grad">inner circle.</span></h1>
         <p class="lede">Find the creators you believe in, hold their keys, and share in the club they build.</p>
         <div class="cta">
           <a class="btn btn-jelly" href="#/explore">Explore clubs →</a>
           <a class="btn btn-ghost" href="#/launch">Launch your club</a>
         </div>
-        <div class="chain"><span class="chip"><i></i>BNB Smart Chain</span><span class="chip">Keys priced in BNB</span><span class="chip">Fixed supply</span></div>
+        <div class="chain"><span class="chip"><i></i>Robinhood Chain</span><span class="chip">Keys priced in ${SYM}</span><span class="chip">Fixed supply</span></div>
       </div>
       <div class="stage" aria-hidden="true">
         <span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span><span class="blob b4"></span>
@@ -671,7 +649,7 @@
             </div>
             ${c.bio ? `<p class="bio">${esc(c.bio)}</p>` : ""}
             <div class="kpis">
-              <div class="kpi"><small>Key price</small><strong>${c.buyPrice ? bnb(c.buyPrice) : "Sold out"}</strong></div>
+              <div class="kpi"><small>Key price</small><strong>${c.buyPrice ? eth(c.buyPrice) : "Sold out"}</strong></div>
               <div class="kpi"><small>Holders</small><strong>${c.holders}</strong></div>
               <div class="kpi"><small>Keys held</small><strong>${c.supply} / ${c.maxSupply}</strong></div>
               <div class="kpi"><small>Holder share</small><strong>${pct(c.share)}</strong></div>
@@ -722,9 +700,9 @@
         else if (wallet.addr && myBal < n) { ok = false; note = myBal ? `You hold ${myBal} key${myBal > 1 ? "s" : ""}.` : "You don't hold any keys in this club."; }
       }
       $("#quote").innerHTML = `
-        <div><dt>Key price</dt><dd>${bnb(value)}</dd></div>
-        <div><dt>Fee (4%)</dt><dd>${buying ? "+" : "−"} ${bnb(f.total)}</dd></div>
-        <div class="total"><dt>${buying ? "You pay" : "You receive"}</dt><dd>${ok ? bnb(total) : "–"}</dd></div>`;
+        <div><dt>Key price</dt><dd>${eth(value)}</dd></div>
+        <div><dt>Fee (4%)</dt><dd>${buying ? "+" : "−"} ${eth(f.total)}</dd></div>
+        <div class="total"><dt>${buying ? "You pay" : "You receive"}</dt><dd>${ok ? eth(total) : "–"}</dd></div>`;
       go.className = "btn btn-block " + (buying ? "btn-jelly" : "btn-sell");
       go.textContent = !wallet.addr ? "Connect wallet" : `${buying ? "Buy" : "Sell"} ${n} key${n > 1 ? "s" : ""}`;
       go.disabled = !!wallet.addr && !ok;
@@ -780,12 +758,12 @@
       $("#pos").innerHTML = `<h3>Your position</h3>
         <dl class="rows">
           <div><dt>Keys you hold</dt><dd>${bal}</dd></div>
-          <div><dt>Sell value now</dt><dd>${bnb(worth)}</dd></div>
-          <div><dt>Unclaimed rewards</dt><dd>${bnb(rew)}</dd></div>
+          <div><dt>Sell value now</dt><dd>${eth(worth)}</dd></div>
+          <div><dt>Unclaimed rewards</dt><dd>${eth(rew)}</dd></div>
         </dl>
         <button class="btn btn-ghost btn-block" id="claimOne" type="button" ${rew > 0n ? "" : "disabled"}>Claim rewards</button>`;
       $("#claimOne").addEventListener("click", async (e) => {
-        if (await runTx(e.currentTarget, () => api.claim([c.creator]), `Claimed ${bnb(rew)}`)) route();
+        if (await runTx(e.currentTarget, () => api.claim([c.creator]), `Claimed ${eth(rew)}`)) route();
       });
     }
     await paintQuote();
@@ -797,7 +775,7 @@
     const cred = await api.credits(wallet.addr);
     if (id !== renderId || !el) return;
     el.innerHTML = `<h3>Creator tools</h3>
-      <dl class="rows"><div><dt>Your fee earnings</dt><dd>${bnb(cred)}</dd></div></dl>
+      <dl class="rows"><div><dt>Your fee earnings</dt><dd>${eth(cred)}</dd></div></dl>
       <button class="btn btn-jelly btn-block" id="wd" type="button" ${cred > 0n ? "" : "disabled"}>Withdraw earnings</button>
       <div class="form" style="margin-top:20px">
         <div class="field"><label for="shareUp">Holder share: <span id="shareOut">${pct(c.share)}</span></label>
@@ -805,7 +783,7 @@
           <span class="hint">You can raise this any time. It can never go back down.</span></div>
         <button class="btn btn-ghost" id="shareBtn" type="button" disabled>Raise holder share</button>
       </div>`;
-    $("#wd", el).addEventListener("click", async (e) => { if (await runTx(e.currentTarget, () => api.withdraw(), `Withdrew ${bnb(cred)}`)) route(); });
+    $("#wd", el).addEventListener("click", async (e) => { if (await runTx(e.currentTarget, () => api.withdraw(), `Withdrew ${eth(cred)}`)) route(); });
     const s = $("#shareUp", el);
     s.addEventListener("input", () => { $("#shareOut", el).textContent = pct(s.value); $("#shareBtn", el).disabled = +s.value <= c.share; });
     $("#shareBtn", el).addEventListener("click", async (e) => { if (await runTx(e.currentTarget, () => api.raiseShare(+s.value), `Holder share raised to ${pct(s.value)}`)) route(); });
@@ -930,27 +908,27 @@
       const totalRew = rows.reduce((s, r) => s + r.reward, 0n);
       const mine = map.get(wallet.addr.toLowerCase());
       view.innerHTML = `<div class="page-title"><div><p class="eyebrow">My keys · ${short(wallet.addr)}</p><h1>Your keys.</h1></div>
-        <div class="cta"><span class="chip">Wallet: ${bnb(wbal)}</span><button class="btn btn-ghost btn-sm" id="disc" type="button">Disconnect</button></div></div>
-        ${!DEMO && NET.chainId === 97 && wbal === 0n ? `<div class="panel" style="margin-bottom:20px">You need test BNB to trade. Get some free from the <a href="${FAUCET}" target="_blank" rel="noopener">BNB Chain faucet</a>.</div>` : ""}
+        <div class="cta"><span class="chip">Wallet: ${eth(wbal)}</span><button class="btn btn-ghost btn-sm" id="disc" type="button">Disconnect</button></div></div>
+        ${!DEMO && wbal === 0n ? `<div class="panel" style="margin-bottom:20px">You need some ${SYM} on ${esc(NET.name)} to trade. Send or bridge ${SYM} to <span class="mono">${short(wallet.addr)}</span>.</div>` : ""}
         <div class="sum">
-          <div class="panel"><span class="eyebrow">Keys worth</span><strong>${bnb(totalWorth)}</strong><span class="muted">If you sold everything now</span></div>
-          <div class="panel"><span class="eyebrow">Unclaimed rewards</span><strong>${bnb(totalRew)}</strong>
+          <div class="panel"><span class="eyebrow">Keys worth</span><strong>${eth(totalWorth)}</strong><span class="muted">If you sold everything now</span></div>
+          <div class="panel"><span class="eyebrow">Unclaimed rewards</span><strong>${eth(totalRew)}</strong>
             <button class="btn btn-jelly btn-sm" id="claimAll" type="button" ${totalRew > 0n ? "" : "disabled"}>Claim all</button></div>
-          <div class="panel"><span class="eyebrow">Creator earnings</span><strong>${bnb(cred)}</strong>
+          <div class="panel"><span class="eyebrow">Creator earnings</span><strong>${eth(cred)}</strong>
             ${mine || cred > 0n ? `<button class="btn btn-ghost btn-sm" id="wdAll" type="button" ${cred > 0n ? "" : "disabled"}>Withdraw</button>` : `<a class="btn btn-ghost btn-sm" href="#/launch">Launch your club</a>`}</div>
         </div>
         <div class="panel"><h3>Holdings</h3><div class="list">
           ${rows.length ? rows.map((r) => `<a class="li" href="#/club/${r.club}">${r.c ? avatar(r.c, "sm") : ""}
-            <div class="grow"><b>${esc(r.c?.name || short(r.club))}</b><span>${r.bal} key${r.bal === 1 ? "" : "s"}${r.reward > 0n ? ` · ${bnb(r.reward)} to claim` : ""}</span></div>
-            <div class="right">${bnb(r.worth)}<span>sell value</span></div></a>`).join("")
+            <div class="grow"><b>${esc(r.c?.name || short(r.club))}</b><span>${r.bal} key${r.bal === 1 ? "" : "s"}${r.reward > 0n ? ` · ${eth(r.reward)} to claim` : ""}</span></div>
+            <div class="right">${eth(r.worth)}<span>sell value</span></div></a>`).join("")
             : `<div class="empty"><b>No keys yet</b><a href="#/explore">Find a club to join</a></div>`}
         </div></div>`;
       $("#disc").addEventListener("click", disconnect);
       $("#claimAll").addEventListener("click", async (e) => {
         const list = rows.filter((r) => r.reward > 0n).map((r) => r.club);
-        if (await runTx(e.currentTarget, () => api.claim(list), `Claimed ${bnb(totalRew)}`)) route();
+        if (await runTx(e.currentTarget, () => api.claim(list), `Claimed ${eth(totalRew)}`)) route();
       });
-      $("#wdAll")?.addEventListener("click", async (e) => { if (await runTx(e.currentTarget, () => api.withdraw(), `Withdrew ${bnb(cred)}`)) route(); });
+      $("#wdAll")?.addEventListener("click", async (e) => { if (await runTx(e.currentTarget, () => api.withdraw(), `Withdrew ${eth(cred)}`)) route(); });
     } catch (e) {
       if (id === renderId) view.innerHTML = `<div class="panel empty" style="margin-top:24px">${loadError(e)}</div>`;
     }
@@ -961,7 +939,7 @@
     <section class="sec">
       <div class="head"><h2>Three steps in.</h2><p>Connect a wallet, pick a creator, hold their key. Creators can launch their own club in a minute.</p></div>
       <div class="steps">
-        <article class="step"><span class="n">1</span><h3>Connect</h3><p>Use MetaMask, Rabby, Trust Wallet or any BNB Chain wallet.</p></article>
+        <article class="step"><span class="n">1</span><h3>Connect</h3><p>Log in with email or X, or use MetaMask, Rabby or any Robinhood Chain wallet.</p></article>
         <article class="step"><span class="n">2</span><h3>Collect</h3><p>Buy a creator's key in ${SYM}. The price rises with every key sold, and you can sell back any time.</p></article>
         <article class="step"><span class="n">3</span><h3>Launch your club</h3><p>Pick how many keys exist and how much of your fee goes to holders. Your first key is free.</p></article>
       </div>
@@ -1005,7 +983,7 @@
   function infoPage() {
     const scan = !DEMO && NET.explorer ? `${NET.explorer}/address/${ADDRESS}` : "";
     view.innerHTML = `<div class="page-title"><div><p class="eyebrow">How it works</p><h1>A closer look.</h1></div>
-      ${scan ? `<a class="btn btn-ghost" href="${scan}" target="_blank" rel="noopener">Contract on BscScan</a>` : ""}</div>
+      ${scan ? `<a class="btn btn-ghost" href="${scan}" target="_blank" rel="noopener">Contract on Blockscout</a>` : ""}</div>
       ${infoSections()}`;
   }
 
@@ -1046,10 +1024,10 @@
   // banner
   const banner = $("#banner");
   if (DEMO) {
-    banner.innerHTML = "<b>Demo mode.</b> Sample clubs and play money. Nothing here is onchain yet.";
+    banner.innerHTML = "<b>Demo mode.</b> Play money only. Nothing here is onchain yet.";
     banner.hidden = false;
-  } else if (NET.chainId === 97) {
-    banner.innerHTML = `<b>BSC Testnet.</b> Test BNB only. <a href="${FAUCET}" target="_blank" rel="noopener">Get free test BNB</a>`;
+  } else if (NET.chainId === NETS.testnet.chainId) {
+    banner.innerHTML = `<b>${esc(NET.name)}.</b> Test ${SYM} only.`;
     banner.hidden = false;
   }
   if (CFG.X_URL) $("#xlink").href = CFG.X_URL;

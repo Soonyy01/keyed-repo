@@ -1,8 +1,8 @@
 # Keyed
 
-**Your key to the inner circle.** Creator keys on BNB Smart Chain.
+**Your key to the inner circle.** Creator keys on Robinhood Chain.
 
-Kreator bisa membuka club dengan jumlah key yang tetap. Pengguna membeli dan menjual key dalam BNB, dan sebagian fee dibagikan ke holder.
+Kreator bisa membuka club dengan jumlah key yang tetap. Pengguna membeli dan menjual key dalam ETH di Robinhood Chain, dan sebagian fee dibagikan ke holder.
 
 ```
 keyed/
@@ -37,10 +37,20 @@ Lalu buka http://localhost:8080.
 ## 2. Siapkan wallet
 
 1. Pasang **MetaMask** di Chrome. Buat wallet baru khusus untuk proyek ini dan simpan seed phrase-nya baik-baik.
-2. Buka https://chainlist.org, cari **BNB Smart Chain Testnet** (chain ID 97), lalu klik *Add to MetaMask*.
-3. Ambil test BNB gratis di https://www.bnbchain.org/en/testnet-faucet.
+2. Tambahkan **Robinhood Chain** ke MetaMask (halaman `/deploy.html` juga akan menambahkannya otomatis):
+   - Network name: `Robinhood Chain`
+   - RPC URL: `https://rpc.mainnet.chain.robinhood.com`
+   - Chain ID: `4663`
+   - Currency symbol: `ETH`
+   - Block explorer: `https://robinhoodchain.blockscout.com`
+3. Isi wallet dengan sedikit **ETH di Robinhood Chain** untuk biaya gas (bridge dari Ethereum/Arbitrum).
+   > Wallet Privy (email/X) bisa di-*export* ke MetaMask, atau kirim ETH dari wallet Privy ke MetaMask.
 
 ## 3. Deploy kontrak
+
+### Cara paling mudah: halaman deploy
+
+Buka `https://situsmu/deploy.html`, klik **Connect wallet**, lalu **Deploy contract**. Halaman ini otomatis pindah ke Robinhood Chain, men-deploy, lalu menampilkan baris `CONTRACT_ADDRESS` untuk disalin ke `config.js`.
 
 ### Cara A: Remix (lewat browser, paling gampang)
 
@@ -52,7 +62,7 @@ Lalu buka http://localhost:8080.
      > ⚠️ **Wajib.** Tanpa ini kontrak terlalu besar dan deploy gagal.
    - Klik **Compile**.
 4. Buka tab **Deploy & Run**:
-   - Environment: **Injected Provider – MetaMask**. Pastikan MetaMask di **BSC Testnet**.
+   - Environment: **Injected Provider – MetaMask**. Pastikan MetaMask di **Robinhood Chain** (chain ID 4663).
    - Pilih kontrak **Keyed**, lalu klik **Deploy** dan konfirmasi.
 5. Salin **alamat kontrak** (`0x...`) dari bagian *Deployed Contracts*.
 
@@ -63,7 +73,7 @@ cd contract
 forge install foundry-rs/forge-std --no-git
 forge test
 forge create src/Keyed.sol:Keyed \
-  --rpc-url https://bsc-testnet-dataseed.bnbchain.org \
+  --rpc-url https://rpc.mainnet.chain.robinhood.com \
   --private-key PRIVATE_KEY_KAMU --broadcast
 ```
 
@@ -75,7 +85,7 @@ Edit `website/config.js`:
 
 ```js
 CONTRACT_ADDRESS: "0xALAMAT_KONTRAK_KAMU",
-NETWORK: "testnet",          // ganti "mainnet" saat sudah live
+NETWORK: "mainnet",          // Robinhood Chain (4663). "testnet" = Robinhood Chain Testnet (46630)
 X_URL: "https://x.com/akunmu",
 ```
 
@@ -103,12 +113,9 @@ git push
 
 Setelah itu, setiap kali kamu `git push`, situs ter-update otomatis.
 
-## 6. Pindah ke mainnet
+## 6. Testnet (opsional)
 
-1. Di MetaMask, ganti jaringan ke **BNB Smart Chain** (chain ID 56) dan isi BNB secukupnya. Biaya deploy biasanya jauh di bawah 0.01 BNB.
-2. Ulangi langkah 3 di mainnet. Kamu akan dapat alamat kontrak baru.
-3. Di `config.js`, isi alamat baru dan ubah `NETWORK: "mainnet"`.
-4. Commit dan push.
+Untuk uji coba tanpa uang asli, ubah `NETWORK: "testnet"` di `config.js` (Robinhood Chain Testnet, chain ID 46630, RPC `https://rpc.testnet.chain.robinhood.com`), deploy ulang lewat `/deploy.html`, lalu isi alamat kontrak testnet-nya. Kembalikan ke `"mainnet"` saat live.
 
 ## Mengambil fee platform
 
@@ -119,8 +126,8 @@ Buka website dengan wallet yang men-deploy kontrak, lalu buka **Portfolio → Cr
 ## Cara kerja
 
 **Harga key**
-- Key ke-n berharga (n − 1)² ÷ 16.000 BNB.
-- Key ke-11 ≈ 0,006 BNB. Key ke-101 ≈ 0,62 BNB.
+- Key ke-n berharga (n − 1)² ÷ 16.000 ETH.
+- Key ke-11 ≈ 0,006 ETH. Key ke-101 ≈ 0,62 ETH.
 
 **Fee 4% per transaksi**
 - 1% untuk platform.
@@ -132,12 +139,12 @@ Buka website dengan wallet yang men-deploy kontrak, lalu buka **Portfolio → Cr
 - Key terakhir di sebuah club tidak bisa dijual.
 
 **Keamanan dana**
-- Pemilik kontrak **tidak bisa** mengambil BNB milik pengguna.
+- Pemilik kontrak **tidak bisa** mengambil ETH milik pengguna.
 - Pemilik hanya bisa mengganti alamat penerima fee platform.
 
 ## Batasan
 
 - **Kontrak belum diaudit.** Ada 23 test, termasuk uji solvabilitas acak dan reentrancy, tapi itu bukan pengganti audit. Gunakan dengan risiko sendiri.
 - **Handle X tidak diverifikasi.** Siapa pun bisa menulis handle apa saja.
-- **RPC publik gratis punya batas.** Kalau ramai, isi `RPC_URL` dengan RPC gratis dari NodeReal atau Ankr.
-- **Pengguna HP** membuka situs lewat browser di dalam aplikasi wallet (Trust Wallet, MetaMask, Binance Wallet).
+- **RPC publik gratis punya batas.** Kalau ramai, isi `RPC_URL` dengan RPC Robinhood Chain dari Alchemy, QuickNode atau Chainstack.
+- **Pengguna HP** membuka situs lewat browser di dalam aplikasi wallet (MetaMask, Rabby, Trust Wallet), atau login lewat Privy (email/X).

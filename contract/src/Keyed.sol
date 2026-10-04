@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-/// @title Keyed - creator clubs with tradable keys on BNB Chain
+/// @title Keyed - creator clubs with tradable keys on Robinhood Chain
 /// @notice Each creator launches one club with a fixed maximum number of keys.
-///         Keys are bought from and sold back to a bonding curve priced in BNB.
+///         Keys are bought from and sold back to a bonding curve priced in ETH (Robinhood Chain gas token).
 ///         Every trade pays a 4% fee: 1% protocol, 3% creator. The creator can pass
 ///         part of their 3% to key holders, and that share can only go up.
-/// @dev    Nobody, including the owner, can move the BNB that backs the curve.
+/// @dev    Nobody, including the owner, can move the ETH that backs the curve.
 ///         The owner can only change where future protocol fees are credited.
 contract Keyed {
     // ---------------------------------------------------------------- constants
     uint256 public constant PROTOCOL_FEE_BPS = 100; // 1%
     uint256 public constant CREATOR_FEE_BPS = 300; // 3%
     uint256 public constant BPS = 10_000;
-    uint256 public constant CURVE_DIVISOR = 16_000; // price of key n = n^2 / 16000 BNB
+    uint256 public constant CURVE_DIVISOR = 16_000; // price of key n = n^2 / 16000 ETH
     uint256 public constant MIN_SUPPLY = 2;
     uint256 public constant MAX_SUPPLY = 5_000;
     uint256 public constant MAX_TRADE = 100;
@@ -77,7 +77,7 @@ contract Keyed {
     TradeRecord[] private _trades;
     mapping(address => uint256[]) private _clubTrades;
 
-    uint256 public rewardPool; // BNB set aside for holder rewards
+    uint256 public rewardPool; // ETH set aside for holder rewards
 
     uint256 private _lock = 1;
 
@@ -191,7 +191,7 @@ contract Keyed {
         uint256 value = getPrice(supply, amount);
         (uint256 pFee, uint256 cFee, uint256 hFee) = _fees(value, c.holderShareBps);
         uint256 total = value + pFee + cFee + hFee;
-        require(msg.value >= total, "Not enough BNB");
+        require(msg.value >= total, "Not enough ETH");
 
         // pay existing holders first (buyer's previous keys included)
         if (hFee > 0) {
@@ -498,6 +498,6 @@ contract Keyed {
 
     function _send(address to, uint256 amount) internal {
         (bool ok,) = payable(to).call{value: amount}("");
-        require(ok, "BNB transfer failed");
+        require(ok, "ETH transfer failed");
     }
 }
