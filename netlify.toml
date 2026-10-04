@@ -1,3 +1,17 @@
 [build]
   publish = "website"
   command = ""
+
+# Same-origin proxies to the Robinhood Chain RPC. Browsers block direct calls to the
+# public RPC (CORS), so the website talks to /rpc on its own domain instead.
+[[redirects]]
+  from = "/rpc"
+  to = "https://rpc.mainnet.chain.robinhood.com"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/rpc-testnet"
+  to = "https://rpc.testnet.chain.robinhood.com"
+  status = 200
+  force = true
