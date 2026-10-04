@@ -76,14 +76,16 @@
 (() => {
   const CFG = window.KEYED_CONFIG || {};
   const NETS = {
-    mainnet: { chainId: 4663, name: "Robinhood Chain", rpc: "https://rpc.mainnet.chain.robinhood.com", explorer: "https://robinhoodchain.blockscout.com", symbol: "ETH" },
-    testnet: { chainId: 46630, name: "Robinhood Chain Testnet", rpc: "https://rpc.testnet.chain.robinhood.com", explorer: "https://explorer.testnet.chain.robinhood.com", symbol: "ETH" },
+    mainnet: { chainId: 4663, name: "Robinhood Chain", proxy: "/rpc", rpc: "https://rpc.mainnet.chain.robinhood.com", explorer: "https://robinhoodchain.blockscout.com", symbol: "ETH" },
+    testnet: { chainId: 46630, name: "Robinhood Chain Testnet", proxy: "/rpc-testnet", rpc: "https://rpc.testnet.chain.robinhood.com", explorer: "https://explorer.testnet.chain.robinhood.com", symbol: "ETH" },
     local: { chainId: 31337, name: "Local test chain", rpc: "http://127.0.0.1:8545", explorer: "", symbol: "ETH" },
   };
   const NET = NETS[CFG.NETWORK] || NETS.mainnet;
   const E = window.ethers;
   const $ = (s) => document.querySelector(s);
   let eip = null, addr = null, lastHash = null;
+  let gasMul = 15n; // x10: 1.5x the estimate; raised automatically after an out-of-gas failure
+  const MAX_GAS = 30_000_000n; // Arbitrum Orbit per-transaction cap is 32M
 
   $("#netChip").textContent = NET.name;
   document.querySelectorAll(".netname").forEach((n) => (n.textContent = NET.name));
@@ -99,9 +101,9 @@
   const errMsg = (e) => {
     const code = e?.code ?? e?.info?.error?.code;
     if (code === "ACTION_REJECTED" || code === 4001) return "Cancelled in your wallet.";
-    const m = e?.shortMessage || e?.info?.error?.message || e?.message || "Something went wrong.";
+    const m = (String(e?.message || "").startsWith("Deploy failed on chain.") ? e.message : null) || e?.shortMessage || e?.info?.error?.message || e?.message || "Something went wrong.";
     if (/insufficient funds/i.test(m)) return `Not enough ${NET.symbol} in this wallet to pay the network fee.`;
-    return String(m).slice(0, 200);
+    return String(m).slice(0, 400);
   };
 
   const providers = [];
@@ -124,30 +126,35 @@
   // so a contract deploy needs far more gas units than on other chains. Unused gas is
   // refunded. Estimate straight from the chain's RPC (mobile wallets often fail to
   // estimate and fall back to a limit that is too low), then add 50% headroom.
-  const rpcProvider = () => new E.JsonRpcProvider((CFG.RPC_URL || "").trim() || NET.rpc, NET.chainId, { staticNetwork: true });
+  const rpcUrl = (CFG.RPC_URL || "").trim() || (NET.proxy && location.protocol === "https:" ? location.origin + NET.proxy : NET.rpc);
+  const rpcProvider = () => new E.JsonRpcProvider(rpcUrl, NET.chainId, { staticNetwork: true });
+  const reason = (e) => String(e?.shortMessage || e?.info?.error?.message || e?.error?.message || e?.message || e).slice(0, 160);
+  async function walletBalance() {
+    try { return BigInt(await eip.request({ method: "eth_getBalance", params: [addr, "latest"] })); }
+    catch { try { return await rpcProvider().getBalance(addr); } catch { return null; } }
+  }
   async function deployGasLimit() {
     const req = { from: addr, data: window.KEYED_BYTECODE };
-    let est;
-    try { est = await rpcProvider().estimateGas(req); }
-    catch (e1) {
-      try { est = await new E.BrowserProvider(eip, "any").estimateGas(req); }
-      catch (e2) { throw new Error("Could not estimate gas for the deploy. Nothing was sent. Check your connection and ETH balance, then try again."); }
+    const errs = [];
+    // 1) the wallet's own RPC (no CORS issues), 2) the public Robinhood RPC
+    for (const [name, prov] of [["wallet", () => new E.BrowserProvider(eip, "any")], ["rpc", rpcProvider]]) {
+      try { const g = ((await prov().estimateGas(req)) * gasMul) / 10n; return g > MAX_GAS ? MAX_GAS : g; }
+      catch (e) { errs.push(`${name}: ${reason(e)}`); }
     }
-    return (est * 15n) / 10n;
+    const bal = await walletBalance();
+    if (bal === 0n) throw new Error(`This wallet has 0 ${NET.symbol} on ${NET.name}. Send some ${NET.symbol} on ${NET.name} to ${addr}, then try again. Nothing was sent.`);
+    throw new Error(`Could not estimate gas. Nothing was sent. Balance: ${bal === null ? "unknown" : E.formatEther(bal) + " " + NET.symbol}. Details: ${errs.join(" | ")}`);
   }
 
   async function estimate() {
     try {
-      const rp = rpcProvider();
-      const [gas, fee, bal] = await Promise.all([
-        deployGasLimit(),
-        rp.getFeeData(),
-        rp.getBalance(addr),
-      ]);
+      const bp = new E.BrowserProvider(eip, "any");
+      const gas = await deployGasLimit();
+      const [fee, bal] = await Promise.all([bp.getFeeData(), walletBalance()]);
       const cost = gas * (fee.maxFeePerGas || fee.gasPrice || 0n);
       const fmt = (w) => Number(E.formatEther(w)).toLocaleString("en-US", { maximumFractionDigits: 6 });
-      status(`Wallet balance: ${fmt(bal)} ${NET.symbol}. Estimated network fee: about ${fmt(cost)} ${NET.symbol}.`, bal < cost);
-      return bal >= cost;
+      status(`Wallet balance: ${bal === null ? "unknown" : fmt(bal) + " " + NET.symbol}. Estimated network fee: up to ${fmt(cost)} ${NET.symbol} (unused gas is refunded).`, bal !== null && bal < cost);
+      return bal === null || bal >= cost;
     } catch (e) { status(errMsg(e), true); return false; }
   }
 
@@ -183,7 +190,21 @@
       lastHash = tx.hash;
       btn.textContent = "Deploying…";
       status("Waiting for the network. This usually takes a few seconds.");
-      const rc = await tx.wait();
+      let rc;
+      try { rc = await tx.wait(); }
+      catch (e) {
+        const r = e?.receipt;
+        const sentLimit = BigInt(tx.gasLimit ?? 0n);
+        if (r) {
+          const used = BigInt(r.gasUsed);
+          const n = (x) => Number(x).toLocaleString("en-US");
+          let why = `Gas used ${n(used)} of limit ${n(sentLimit)} (page asked for ${n(gasLimit)}).`;
+          if (sentLimit && sentLimit < gasLimit) why += " Your wallet LOWERED the gas limit. Use a wallet that keeps the dapp's gas limit (MetaMask or Rabby), or raise it manually in the wallet.";
+          else if (used * 100n >= sentLimit * 95n) { gasMul = gasMul * 2n; why += " Ran out of gas. Tap Deploy again: the next try uses double the gas limit."; }
+          e.message = "Deploy failed on chain. " + why;
+        }
+        throw e;
+      }
       const ca = rc.contractAddress;
       const owner = await new E.Contract(ca, ["function owner() view returns (address)"], signer).owner();
       if (owner.toLowerCase() !== addr.toLowerCase()) throw new Error("Deployed, but the owner check failed. Do not use this address.");

@@ -18,14 +18,18 @@ if (APP_ID && HAS_CONTRACT) {
 }
 
 // Robinhood Chain (Arbitrum Orbit L2, gas paid in ETH)
+// Same-origin proxy (netlify.toml) avoids the browser CORS block on the public RPC.
+const live = location.protocol === "https:";
 const RPC = (CFG.RPC_URL || "").trim();
+const MAIN_RPC = RPC || (live ? location.origin + "/rpc" : "https://rpc.mainnet.chain.robinhood.com");
+const TEST_RPC = RPC || (live ? location.origin + "/rpc-testnet" : "https://rpc.testnet.chain.robinhood.com");
 const robinhood = {
   id: 4663,
   name: "Robinhood Chain",
   network: "robinhood",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
-    default: { http: [RPC || "https://rpc.mainnet.chain.robinhood.com"] },
+    default: { http: [MAIN_RPC] },
     public: { http: ["https://rpc.mainnet.chain.robinhood.com"] },
   },
   blockExplorers: { default: { name: "Blockscout", url: "https://robinhoodchain.blockscout.com" } },
@@ -36,7 +40,7 @@ const robinhoodTestnet = {
   network: "robinhood-testnet",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
-    default: { http: [RPC || "https://rpc.testnet.chain.robinhood.com"] },
+    default: { http: [TEST_RPC] },
     public: { http: ["https://rpc.testnet.chain.robinhood.com"] },
   },
   blockExplorers: { default: { name: "Explorer", url: "https://explorer.testnet.chain.robinhood.com" } },

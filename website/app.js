@@ -5,12 +5,16 @@
   // ------------------------------------------------------------------ config
   const CFG = window.KEYED_CONFIG || {};
   const NETS = {
-    mainnet: { chainId: 4663, name: "Robinhood Chain", rpc: "https://rpc.mainnet.chain.robinhood.com", explorer: "https://robinhoodchain.blockscout.com", symbol: "ETH" },
-    testnet: { chainId: 46630, name: "Robinhood Chain Testnet", rpc: "https://rpc.testnet.chain.robinhood.com", explorer: "https://explorer.testnet.chain.robinhood.com", symbol: "ETH" },
+    mainnet: { chainId: 4663, name: "Robinhood Chain", proxy: "/rpc", rpc: "https://rpc.mainnet.chain.robinhood.com", explorer: "https://robinhoodchain.blockscout.com", symbol: "ETH" },
+    testnet: { chainId: 46630, name: "Robinhood Chain Testnet", proxy: "/rpc-testnet", rpc: "https://rpc.testnet.chain.robinhood.com", explorer: "https://explorer.testnet.chain.robinhood.com", symbol: "ETH" },
     local: { chainId: 31337, name: "Local test chain", rpc: "http://127.0.0.1:8545", explorer: "", symbol: "ETH" },
   };
   const NET = NETS[CFG.NETWORK] || NETS.mainnet;
   const RPC = (CFG.RPC_URL || "").trim() || NET.rpc;
+  // Browsers block direct calls to the public Robinhood RPC (CORS). On the live site,
+  // read through the same-origin /rpc proxy (netlify.toml) and fall back to RPC.
+  const READ_RPCS = (CFG.RPC_URL || "").trim() || !NET.proxy || !/^https:/.test(location.protocol)
+    ? [RPC] : [location.origin + NET.proxy, NET.rpc];
   const ADDRESS = (CFG.CONTRACT_ADDRESS || "").trim();
   const E = window.ethers;
   const DEMO = !ADDRESS || !E;
@@ -130,7 +134,9 @@
   });
 
   function chainApi() {
-    const rp = new E.JsonRpcProvider(RPC, NET.chainId, { staticNetwork: true });
+    const mk = (u) => new E.JsonRpcProvider(u, NET.chainId, { staticNetwork: true });
+    const rp = READ_RPCS.length === 1 ? mk(READ_RPCS[0])
+      : new E.FallbackProvider(READ_RPCS.map((u, i) => ({ provider: mk(u), priority: i + 1, weight: 1, stallTimeout: 2500 })), NET.chainId, { quorum: 1 });
     const rc = new E.Contract(ADDRESS, ABI, rp);
     const wc = () => new E.Contract(ADDRESS, ABI, wallet.signer);
     return {
