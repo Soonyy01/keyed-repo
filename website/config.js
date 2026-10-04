@@ -5,7 +5,7 @@ window.KEYED_CONFIG = {
   // 1. Paste your contract address here after deploying Keyed.sol on Robinhood Chain
   //    (open /deploy.html on your site to deploy it from the browser).
   //    Leave it empty ("") to run the site in demo mode with play money.
-  CONTRACT_ADDRESS: "",
+  CONTRACT_ADDRESS: "0xbf9A8AE74a06D44f2fC977842a1f899611AB8800",
 
   // 2. Which network the contract lives on:
   //    "mainnet" = Robinhood Chain (chain ID 4663, real ETH)
