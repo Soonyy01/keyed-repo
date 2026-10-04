@@ -120,15 +120,31 @@
     }
   }
 
+  // On Robinhood Chain (Arbitrum Orbit) the gas limit must also cover the L1 data fee,
+  // so a contract deploy needs far more gas units than on other chains. Unused gas is
+  // refunded. Estimate straight from the chain's RPC (mobile wallets often fail to
+  // estimate and fall back to a limit that is too low), then add 50% headroom.
+  const rpcProvider = () => new E.JsonRpcProvider((CFG.RPC_URL || "").trim() || NET.rpc, NET.chainId, { staticNetwork: true });
+  async function deployGasLimit() {
+    const req = { from: addr, data: window.KEYED_BYTECODE };
+    let est;
+    try { est = await rpcProvider().estimateGas(req); }
+    catch (e1) {
+      try { est = await new E.BrowserProvider(eip, "any").estimateGas(req); }
+      catch (e2) { throw new Error("Could not estimate gas for the deploy. Nothing was sent. Check your connection and ETH balance, then try again."); }
+    }
+    return (est * 15n) / 10n;
+  }
+
   async function estimate() {
     try {
-      const bp = new E.BrowserProvider(eip, "any");
+      const rp = rpcProvider();
       const [gas, fee, bal] = await Promise.all([
-        bp.estimateGas({ from: addr, data: window.KEYED_BYTECODE }),
-        bp.getFeeData(),
-        bp.getBalance(addr),
+        deployGasLimit(),
+        rp.getFeeData(),
+        rp.getBalance(addr),
       ]);
-      const cost = gas * (fee.gasPrice || 0n);
+      const cost = gas * (fee.maxFeePerGas || fee.gasPrice || 0n);
       const fmt = (w) => Number(E.formatEther(w)).toLocaleString("en-US", { maximumFractionDigits: 6 });
       status(`Wallet balance: ${fmt(bal)} ${NET.symbol}. Estimated network fee: about ${fmt(cost)} ${NET.symbol}.`, bal < cost);
       return bal >= cost;
@@ -160,15 +176,9 @@
       await ensureChain();
       btn.textContent = "Confirm in wallet…";
       const signer = await new E.BrowserProvider(eip, "any").getSigner(addr);
-      // On Robinhood Chain (Arbitrum Orbit) the gas limit also covers the L1 data fee,
-      // so a deploy needs more gas units than on other chains. Unused gas is refunded.
-      // Some mobile wallets set a lower limit and the transaction fails, so set it ourselves.
-      let gasLimit = 12_000_000n;
-      try {
-        const est = await new E.BrowserProvider(eip, "any").estimateGas({ from: addr, data: window.KEYED_BYTECODE });
-        const padded = (est * 13n) / 10n;
-        if (padded > gasLimit) gasLimit = padded;
-      } catch { /* keep the safe default */ }
+      btn.textContent = "Estimating gas…";
+      const gasLimit = await deployGasLimit();
+      btn.textContent = "Confirm in wallet…";
       const tx = await signer.sendTransaction({ data: window.KEYED_BYTECODE, gasLimit });
       lastHash = tx.hash;
       btn.textContent = "Deploying…";
