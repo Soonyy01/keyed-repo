@@ -101,7 +101,10 @@
   const errMsg = (e) => {
     const code = e?.code ?? e?.info?.error?.code;
     if (code === "ACTION_REJECTED" || code === 4001) return "Cancelled in your wallet.";
-    const m = (String(e?.message || "").startsWith("Deploy failed on chain.") ? e.message : null) || e?.shortMessage || e?.info?.error?.message || e?.message || "Something went wrong.";
+    const own = String(e?.message || "");
+    const m = (own.startsWith("Deploy failed on chain.") || own.startsWith("Could not estimate gas") || own.startsWith("This wallet has 0")) ? own
+      : (/coalesce/i.test(own) ? "Wallet error: " + (inner(e) || JSON.stringify(e?.error || e?.info || {}).slice(0, 200)) : null)
+      || inner(e) || e?.shortMessage || own || "Something went wrong.";
     if (/insufficient funds/i.test(m)) return `Not enough ${NET.symbol} in this wallet to pay the network fee.`;
     return String(m).slice(0, 400);
   };
@@ -128,7 +131,9 @@
   // estimate and fall back to a limit that is too low), then add 50% headroom.
   const rpcUrl = (CFG.RPC_URL || "").trim() || (NET.proxy && location.protocol === "https:" ? location.origin + NET.proxy : NET.rpc);
   const rpcProvider = () => new E.JsonRpcProvider(rpcUrl, NET.chainId, { staticNetwork: true });
-  const reason = (e) => String(e?.shortMessage || e?.info?.error?.message || e?.error?.message || e?.message || e).slice(0, 160);
+  // Dig out the wallet's real message (ethers wraps unknown wallet errors as "could not coalesce error").
+  const inner = (e) => e?.error?.data?.message || e?.error?.message || e?.info?.error?.data?.message || e?.info?.error?.message || e?.data?.message || "";
+  const reason = (e) => String(inner(e) || e?.shortMessage || e?.message || e).slice(0, 200);
   async function walletBalance() {
     try { return BigInt(await eip.request({ method: "eth_getBalance", params: [addr, "latest"] })); }
     catch { try { return await rpcProvider().getBalance(addr); } catch { return null; } }
@@ -150,6 +155,9 @@
   async function estimate() {
     try {
       const bp = new E.BrowserProvider(eip, "any");
+      const bal0 = await walletBalance();
+      if (bal0 !== null) status(`Wallet balance: ${E.formatEther(bal0)} ${NET.symbol} on ${NET.name}. Checking gas…`);
+      if (bal0 === 0n) throw new Error(`This wallet has 0 ${NET.symbol} on ${NET.name}. Send some ${NET.symbol} on ${NET.name} to ${addr}, then try again. Nothing was sent.`);
       const gas = await deployGasLimit();
       const [fee, bal] = await Promise.all([bp.getFeeData(), walletBalance()]);
       const cost = gas * (fee.maxFeePerGas || fee.gasPrice || 0n);
