@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deploy Keyed</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/webp" href="logo.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .dep{max-width:620px;margin:0 auto;padding-block:40px 60px;display:grid;gap:20px}
+  .dep h1{font-size:clamp(30px,6vw,46px);font-weight:900;letter-spacing:-.03em}
+  .steps-v{display:grid;gap:12px}
+  .sv{display:flex;gap:14px;align-items:flex-start}
+  .sv .n{flex:none;width:30px;height:30px;border-radius:10px;display:grid;place-items:center;font:700 13px var(--mono);background:var(--sunk);color:var(--muted)}
+  .sv.done .n{background:var(--good);color:#fff}
+  .sv.now .n{background:var(--violet);color:#fff}
+  .sv b{display:block}
+  .sv span{color:var(--muted);font-size:14px}
+  .out{font:500 13px/1.5 var(--mono);background:var(--sunk);border-radius:14px;padding:14px;overflow-x:auto;white-space:pre;user-select:all}
+  .warn{border-color:var(--bad)}
+  .addr{font:700 15px var(--mono);overflow-wrap:anywhere}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="nav"><div class="bar">
+    <a class="brand" href="./"><img src="logo.webp" alt="">Keyed</a>
+    <span class="chip" id="netChip" style="margin-left:auto"></span>
+  </div></nav>
+
+  <main class="dep">
+    <div>
+      <p class="eyebrow">One-time setup</p>
+      <h1>Deploy the Keyed contract.</h1>
+      <p class="muted" style="margin-top:12px!important">Do this once. The wallet you deploy with becomes the owner and receives the 1% platform fee.</p>
+    </div>
+
+    <div class="panel warn" id="already" hidden>
+      <h3>A contract is already set</h3>
+      <p class="muted">config.js already points to <span class="mono" id="existing"></span>. Deploying again creates a second, separate contract. Only continue if you really want a new one.</p>
+    </div>
+
+    <div class="panel">
+      <div class="steps-v">
+        <div class="sv now" id="s1"><span class="n">1</span><div><b>Connect the owner wallet</b><span id="s1t">Use MetaMask, Rabby or Trust Wallet.</span></div></div>
+        <div class="sv" id="s2"><span class="n">2</span><div><b>Switch to <span class="netname"></span></b><span id="s2t">The wallet will ask to switch if needed.</span></div></div>
+        <div class="sv" id="s3"><span class="n">3</span><div><b>Deploy</b><span id="s3t">Confirm one transaction in your wallet.</span></div></div>
+      </div>
+      <div class="cta" style="margin-top:20px">
+        <button class="btn btn-dark" id="connect" type="button">Connect wallet</button>
+        <button class="btn btn-jelly" id="deploy" type="button" disabled>Deploy contract</button>
+      </div>
+      <p class="note" id="status"></p>
+    </div>
+
+    <div class="panel" id="result" hidden>
+      <h3>Contract deployed</h3>
+      <p class="addr" id="addr"></p>
+      <p class="note"><a id="scan" target="_blank" rel="noopener">View on Robinhood Chain explorer</a></p>
+      <p style="margin-top:16px!important"><b>Last step.</b> Open <span class="mono">website/config.js</span>, replace the <span class="mono">CONTRACT_ADDRESS</span> line with this one, then commit and push:</p>
+      <div class="out" id="line" style="margin-top:10px"></div>
+      <button class="btn btn-ghost btn-sm" id="copy" type="button" style="margin-top:10px">Copy line</button>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script src="config.js"></script>
+<script src="vendor/ethers.umd.min.js"></script>
+<script src="keyed-bytecode.js"></script>
+<script>
+(() => {
+  const CFG = window.KEYED_CONFIG || {};
+  const NETS = {
+    mainnet: { chainId: 4663, name: "Robinhood Chain", rpc: "https://rpc.mainnet.chain.robinhood.com", explorer: "https://robinhoodchain.blockscout.com", symbol: "ETH" },
+    testnet: { chainId: 46630, name: "Robinhood Chain Testnet", rpc: "https://rpc.testnet.chain.robinhood.com", explorer: "https://explorer.testnet.chain.robinhood.com", symbol: "ETH" },
+    local: { chainId: 31337, name: "Local test chain", rpc: "http://127.0.0.1:8545", explorer: "", symbol: "ETH" },
+  };
+  const NET = NETS[CFG.NETWORK] || NETS.mainnet;
+  const E = window.ethers;
+  const $ = (s) => document.querySelector(s);
+  let eip = null, addr = null, lastHash = null;
+
+  $("#netChip").textContent = NET.name;
+  document.querySelectorAll(".netname").forEach((n) => (n.textContent = NET.name));
+  if ((CFG.CONTRACT_ADDRESS || "").trim()) { $("#existing").textContent = CFG.CONTRACT_ADDRESS; $("#already").hidden = false; }
+
+  const status = (t, err) => { const s = $("#status"); s.textContent = t; s.style.color = err ? "var(--bad)" : ""; };
+  const step = (i, state, text) => {
+    const el = $("#s" + i);
+    el.classList.toggle("done", state === "done");
+    el.classList.toggle("now", state === "now");
+    if (text) $("#s" + i + "t").textContent = text;
+  };
+  const errMsg = (e) => {
+    const code = e?.code ?? e?.info?.error?.code;
+    if (code === "ACTION_REJECTED" || code === 4001) return "Cancelled in your wallet.";
+    const m = e?.shortMessage || e?.info?.error?.message || e?.message || "Something went wrong.";
+    if (/insufficient funds/i.test(m)) return `Not enough ${NET.symbol} in this wallet to pay the network fee.`;
+    return String(m).slice(0, 200);
+  };
+
+  const providers = [];
+  window.addEventListener("eip6963:announceProvider", (e) => { if (e.detail?.provider) providers.push(e.detail); });
+  window.dispatchEvent(new Event("eip6963:requestProvider"));
+
+  async function ensureChain() {
+    const hex = "0x" + NET.chainId.toString(16);
+    const cur = Number(await eip.request({ method: "eth_chainId" }));
+    if (cur === NET.chainId) return;
+    try {
+      await eip.request({ method: "wallet_switchEthereumChain", params: [{ chainId: hex }] });
+    } catch (e) {
+      if ((e?.code ?? e?.data?.originalError?.code) !== 4902) throw e;
+      await eip.request({ method: "wallet_addEthereumChain", params: [{ chainId: hex, chainName: NET.name, nativeCurrency: { name: "Ether", symbol: NET.symbol, decimals: 18 }, rpcUrls: [NET.rpc], blockExplorerUrls: NET.explorer ? [NET.explorer] : [] }] });
+    }
+  }
+
+  // On Robinhood Chain (Arbitrum Orbit) the gas limit must also cover the L1 data fee,
+  // so a contract deploy needs far more gas units than on other chains. Unused gas is
+  // refunded. Estimate straight from the chain's RPC (mobile wallets often fail to
+  // estimate and fall back to a limit that is too low), then add 50% headroom.
+  const rpcProvider = () => new E.JsonRpcProvider((CFG.RPC_URL || "").trim() || NET.rpc, NET.chainId, { staticNetwork: true });
+  async function deployGasLimit() {
+    const req = { from: addr, data: window.KEYED_BYTECODE };
+    let est;
+    try { est = await rpcProvider().estimateGas(req); }
+    catch (e1) {
+      try { est = await new E.BrowserProvider(eip, "any").estimateGas(req); }
+      catch (e2) { throw new Error("Could not estimate gas for the deploy. Nothing was sent. Check your connection and ETH balance, then try again."); }
+    }
+    return (est * 15n) / 10n;
+  }
+
+  async function estimate() {
+    try {
+      const rp = rpcProvider();
+      const [gas, fee, bal] = await Promise.all([
+        deployGasLimit(),
+        rp.getFeeData(),
+        rp.getBalance(addr),
+      ]);
+      const cost = gas * (fee.maxFeePerGas || fee.gasPrice || 0n);
+      const fmt = (w) => Number(E.formatEther(w)).toLocaleString("en-US", { maximumFractionDigits: 6 });
+      status(`Wallet balance: ${fmt(bal)} ${NET.symbol}. Estimated network fee: about ${fmt(cost)} ${NET.symbol}.`, bal < cost);
+      return bal >= cost;
+    } catch (e) { status(errMsg(e), true); return false; }
+  }
+
+  $("#connect").addEventListener("click", async () => {
+    eip = providers[0]?.provider || window.ethereum;
+    if (!eip) { status("No wallet found. Install MetaMask or Rabby, or open this page inside your wallet app's browser.", true); return; }
+    try {
+      const accs = await eip.request({ method: "eth_requestAccounts" });
+      addr = E.getAddress(accs[0]);
+      step(1, "done", `Connected ${addr.slice(0, 6)}…${addr.slice(-4)}`);
+      step(2, "now");
+      await ensureChain();
+      step(2, "done", `On ${NET.name}`);
+      step(3, "now");
+      $("#connect").textContent = `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+      $("#connect").className = "btn btn-ghost";
+      $("#deploy").disabled = false;
+      await estimate();
+    } catch (e) { status(errMsg(e), true); }
+  });
+
+  $("#deploy").addEventListener("click", async () => {
+    const btn = $("#deploy");
+    btn.disabled = true;
+    try {
+      await ensureChain();
+      btn.textContent = "Confirm in wallet…";
+      const signer = await new E.BrowserProvider(eip, "any").getSigner(addr);
+      btn.textContent = "Estimating gas…";
+      const gasLimit = await deployGasLimit();
+      btn.textContent = "Confirm in wallet…";
+      const tx = await signer.sendTransaction({ data: window.KEYED_BYTECODE, gasLimit });
+      lastHash = tx.hash;
+      btn.textContent = "Deploying…";
+      status("Waiting for the network. This usually takes a few seconds.");
+      const rc = await tx.wait();
+      const ca = rc.contractAddress;
+      const owner = await new E.Contract(ca, ["function owner() view returns (address)"], signer).owner();
+      if (owner.toLowerCase() !== addr.toLowerCase()) throw new Error("Deployed, but the owner check failed. Do not use this address.");
+      step(3, "done", "Deployed and verified owner");
+      status("");
+      $("#addr").textContent = ca;
+      $("#scan").href = `${NET.explorer}/address/${ca}`;
+      $("#scan").parentElement.hidden = !NET.explorer;
+      $("#line").textContent = `CONTRACT_ADDRESS: "${ca}",`;
+      $("#result").hidden = false;
+      btn.textContent = "Deployed";
+    } catch (e) {
+      const failed = e?.receipt?.hash || lastHash;
+      status(errMsg(e) + (failed && NET.explorer ? " Check it on the explorer: " + NET.explorer + "/tx/" + failed : ""), true);
+      lastHash = null;
+      btn.textContent = "Deploy contract";
+      btn.disabled = false;
+    }
+  });
+
+  $("#copy").addEventListener("click", () => {
+    const t = $("#line").textContent;
+    const ok = () => { const x = $("#toast"); x.textContent = "Copied"; x.hidden = false; setTimeout(() => (x.hidden = true), 2000); };
+    try { navigator.clipboard.writeText(t).then(ok, () => {}); } catch { /* select manually */ }
+  });
+})();
+</script>
+</body>
+</html>
