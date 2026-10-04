@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/rpc", "destination": "https://rpc.mainnet.chain.robinhood.com" },
+    { "source": "/rpc-testnet", "destination": "https://rpc.testnet.chain.robinhood.com" }
+  ]
+}

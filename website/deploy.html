@@ -137,7 +137,8 @@
     const req = { from: addr, data: window.KEYED_BYTECODE };
     const errs = [];
     // 1) the wallet's own RPC (no CORS issues), 2) the public Robinhood RPC
-    for (const [name, prov] of [["wallet", () => new E.BrowserProvider(eip, "any")], ["rpc", rpcProvider]]) {
+    const pub = () => new E.JsonRpcProvider((CFG.RPC_URL || "").trim() || NET.rpc, NET.chainId, { staticNetwork: true });
+    for (const [name, prov] of [["wallet", () => new E.BrowserProvider(eip, "any")], ["rpc", rpcProvider], ["public", pub]]) {
       try { const g = ((await prov().estimateGas(req)) * gasMul) / 10n; return g > MAX_GAS ? MAX_GAS : g; }
       catch (e) { errs.push(`${name}: ${reason(e)}`); }
     }

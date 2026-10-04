@@ -1,0 +1,3 @@
+# Same-origin proxy to the Robinhood Chain RPC (browsers block direct calls: CORS)
+/rpc           https://rpc.mainnet.chain.robinhood.com  200!
+/rpc-testnet   https://rpc.testnet.chain.robinhood.com  200!
